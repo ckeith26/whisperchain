@@ -1,0 +1,43 @@
+{
+  "extends": "airbnb",
+  "parser": "@babel/eslint-parser",
+  "env": {
+    "browser": true,
+    "node": true,
+    "es6": true
+  },
+  "parserOptions": {
+    "requireConfigFile": false,
+    "ecmaVersion": 2020,
+    "sourceType": "module"
+  },
+  "rules": {
+    "no-console": "off",
+    "strict": 0,
+    "quotes": [2, "single"],
+    "no-unused-vars": ["error", { "vars": "all", "args": "none" }],
+    "no-underscore-dangle": 0,
+    "import/extensions": 0,
+    "import/no-unresolved": 0,
+    "no-else-return": 0,
+    "new-cap": [
+      "error",
+      {
+        "capIsNewExceptions": [
+          "Router"
+        ]
+      }
+    ],
+    "no-use-before-define": [
+      "error",
+      {
+        "functions": false
+      }
+    ],
+    "max-len": 0,
+    "no-param-reassign": 0
+  },
+  "plugins": [
+    "import"
+  ]
+}
