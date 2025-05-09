@@ -33,7 +33,7 @@ import { toast } from 'react-toastify';
 import useStore from '../../../store';
 import { format } from 'date-fns';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:9090/api';
+const API_URL = import.meta.env.VITE_API_URL;
 
 const FlaggedMessages = () => {
   const [flaggedMessages, setFlaggedMessages] = useState([]);

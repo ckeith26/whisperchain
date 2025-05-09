@@ -96,16 +96,16 @@ const checkAndSetupAdmin = async () => {
     console.log('Admin account created successfully!');
     console.log(`Email: ${email}`);
     console.log(`Name: ${name}`);
-    
+
     if (generatePassword.toLowerCase() === 'y') {
       console.log(`Password: ${password}`);
       console.log('IMPORTANT: This is the last time the password will be displayed. Please save it securely!');
     }
-    
+
     // Close readline interface
     rl.close();
-    
-  } catch (error) {
+
+} catch (error) {
     console.error('Error setting up admin account:', error.message);
     rl.close();
     process.exit(1);
