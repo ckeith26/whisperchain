@@ -181,7 +181,8 @@ const SystemSettings = () => {
           bgcolor: 'rgba(22, 28, 36, 0.9)',
           borderRadius: 2,
           border: '1px solid rgba(255,255,255,0.1)',
-          mb: 3
+          mb: 3,
+          color: 'white'
         }}
       >
         <Typography variant="h5" component="h2" gutterBottom>
@@ -194,7 +195,7 @@ const SystemSettings = () => {
           </Box>
         ) : (
           <>
-            <Alert severity="info" sx={{ mb: 3 }}>
+            <Alert severity="info" sx={{ mb: 3, '& .MuiAlert-message': { color: 'info.dark' } }}>
               <AlertTitle>Important</AlertTitle>
               Changes to these settings may affect system security and performance. Proceed with caution.
             </Alert>
@@ -325,14 +326,15 @@ const SystemSettings = () => {
           bgcolor: 'rgba(22, 28, 36, 0.9)',
           borderRadius: 2,
           border: '1px solid rgba(255,255,255,0.1)',
-          mb: 3
+          mb: 3,
+          color: 'white'
         }}
       >
         <Typography variant="h5" component="h2" gutterBottom>
           System Security
         </Typography>
         
-        <Alert severity="warning" sx={{ mb: 3 }}>
+        <Alert severity="warning" sx={{ mb: 3, '& .MuiAlert-message': { color: 'warning.dark' } }}>
           <AlertTitle>Security Warning</AlertTitle>
           The following actions affect system security. Use with caution and only when necessary.
         </Alert>
@@ -377,7 +379,7 @@ const SystemSettings = () => {
           {getConfirmationDialogContent().title}
         </DialogTitle>
         <DialogContent>
-          <DialogContentText color="white">
+          <DialogContentText sx={{ color: 'white' }}>
             {getConfirmationDialogContent().message}
           </DialogContentText>
         </DialogContent>

@@ -26,10 +26,12 @@ import {
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import DeleteIcon from '@mui/icons-material/Delete';
 import BlockIcon from '@mui/icons-material/Block';
+import PersonOffIcon from '@mui/icons-material/PersonOff';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import useStore from '../../../store';
+import { format } from 'date-fns';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:9090/api';
 
@@ -43,19 +45,26 @@ const FlaggedMessages = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [actionNote, setActionNote] = useState('');
   const [actionType, setActionType] = useState('');
+  const [totalCount, setTotalCount] = useState(0);
   const { token } = useStore(state => state.authSlice);
+  const { fetchFlaggedMessageCount } = useStore(state => state.userSlice);
 
   useEffect(() => {
     fetchFlaggedMessages();
-  }, [token]);
+    // Update the count in the global store for badge display
+    fetchFlaggedMessageCount();
+  }, [token, fetchFlaggedMessageCount]);
 
   const fetchFlaggedMessages = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/moderator/flaggedMessages`, {
+      const response = await axios.get(`${API_URL}/moderator/flaggedMessages?page=${page}&limit=${rowsPerPage}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      
+      // Just use the data as provided by the API
       setFlaggedMessages(response.data.messages || []);
+      setTotalCount(response.data.pagination?.totalCount || 0);
       setError(null);
     } catch (err) {
       console.error('Error fetching flagged messages:', err);
@@ -68,11 +77,13 @@ const FlaggedMessages = () => {
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
+    fetchFlaggedMessages();
   };
 
   const handleChangeRowsPerPage = (event) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
+    fetchFlaggedMessages();
   };
 
   const handleViewMessage = (message) => {
@@ -87,34 +98,74 @@ const FlaggedMessages = () => {
     setActionType('');
   };
 
+  const formatDate = (dateString) => {
+    try {
+      if (!dateString) return 'Unknown Date';
+      return format(new Date(dateString), 'MMM d, yyyy h:mm a');
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Unknown Date';
+    }
+  };
+
   const handleAction = async (type) => {
     try {
       setActionType(type);
-      // This would be replaced with the actual API call to handle the action
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulated API call
       
-      // In a real implementation, you would call the API to perform the action
-      /*
+      // Call the API to perform the action
       await axios.post(`${API_URL}/moderator/moderateMessage`, {
-        messageId: selected.id,
+        messageId: selected.messageId,
         action: type,
         note: actionNote
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      */
       
-      toast.success(`Message ${type === 'approve' ? 'approved' : type === 'reject' ? 'rejected' : 'frozen'} successfully`);
+      toast.success(`Message ${type === 'approve' ? 'approved' : type === 'reject' ? 'rejected' : type === 'suspend_sender' ? 'sender suspended' : 'action completed'} successfully`);
+      
+      // Refresh data
+      handleCloseDialog();
+      fetchFlaggedMessages();
+      fetchFlaggedMessageCount(); // Update the badge count
+    } catch (err) {
+      console.error(`Failed to ${type} message:`, err);
+      toast.error(err.response?.data?.error || `Failed to ${type} message`);
+    } finally {
+      setActionType('');
+    }
+  };
+  
+  const handleSuspendUser = async () => {
+    if (!selected || !selected.recipient || !selected.recipient.uid) {
+      toast.error('Cannot identify user to suspend');
+      return;
+    }
+    
+    try {
+      setActionType('suspend_user');
+      
+      // Call API to suspend the user
+      await axios.post(`${API_URL}/moderator/suspendUser`, {
+        userId: selected.recipient.uid,
+        reason: actionNote || 'Suspended via moderation panel'
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      toast.success('User suspended successfully');
+      
+      // Refresh data
       handleCloseDialog();
       fetchFlaggedMessages();
     } catch (err) {
-      toast.error(`Failed to ${type} message: ${err.message}`);
+      console.error('Failed to suspend user:', err);
+      toast.error(err.response?.data?.error || 'Failed to suspend user');
     } finally {
       setActionType('');
     }
   };
 
-  if (loading) {
+  if (loading && !flaggedMessages.length) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
         <CircularProgress color="secondary" />
@@ -142,15 +193,16 @@ const FlaggedMessages = () => {
         }}
       >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h5" component="h1">
-            Flagged Messages
+          <Typography variant="h5" component="h1" color="white">
+            Flagged Messages ({totalCount})
           </Typography>
           <Button 
             variant="contained" 
             color="primary" 
             onClick={fetchFlaggedMessages}
+            disabled={loading}
           >
-            Refresh
+            {loading ? <CircularProgress size={24} color="inherit" /> : 'Refresh'}
           </Button>
         </Box>
         
@@ -162,43 +214,29 @@ const FlaggedMessages = () => {
               <Table sx={{ minWidth: 650 }}>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ color: 'rgba(255,255,255,0.7)' }}>Date</TableCell>
-                    <TableCell sx={{ color: 'rgba(255,255,255,0.7)' }}>Round</TableCell>
-                    <TableCell sx={{ color: 'rgba(255,255,255,0.7)' }}>Flag Reason</TableCell>
-                    <TableCell sx={{ color: 'rgba(255,255,255,0.7)' }}>Status</TableCell>
-                    <TableCell sx={{ color: 'rgba(255,255,255,0.7)' }}>Actions</TableCell>
+                    <TableCell sx={{ color: 'white' }}>Date</TableCell>
+                    <TableCell sx={{ color: 'white' }}>Flagged</TableCell>
+                    <TableCell sx={{ color: 'white' }}>Sender ID</TableCell>
+                    <TableCell sx={{ color: 'white' }}>Recipient ID</TableCell>
+                    <TableCell sx={{ color: 'white' }}>Preview</TableCell>
+                    <TableCell sx={{ color: 'white' }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {/* Mock data - would be replaced with actual data */}
-                  {[
-                    { 
-                      id: 1, 
-                      date: new Date().toLocaleDateString(), 
-                      round: 3, 
-                      reason: 'Inappropriate content', 
-                      status: 'Pending',
-                      content: 'This is a sample flagged message content that contains inappropriate material that violated community standards.'
-                    },
-                    { 
-                      id: 2, 
-                      date: new Date(Date.now() - 86400000).toLocaleDateString(), 
-                      round: 3, 
-                      reason: 'Spam', 
-                      status: 'Pending',
-                      content: 'This message appears to be spam content promoting unauthorized services or products.'
-                    }
-                  ].slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((message) => (
-                    <TableRow key={message.id}>
-                      <TableCell sx={{ color: 'white' }}>{message.date}</TableCell>
-                      <TableCell sx={{ color: 'white' }}>{message.round}</TableCell>
-                      <TableCell sx={{ color: 'white' }}>{message.reason}</TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={message.status} 
-                          color={message.status === 'Pending' ? 'warning' : message.status === 'Approved' ? 'success' : 'error'} 
-                          size="small"
-                        />
+                  {flaggedMessages.map((message) => (
+                    <TableRow key={message.messageId}>
+                      <TableCell sx={{ color: 'white' }}>{formatDate(message.sentAt)}</TableCell>
+                      <TableCell sx={{ color: 'white' }}>{formatDate(message.flaggedAt)}</TableCell>
+                      <TableCell sx={{ color: 'white' }}>
+                        {message.senderUid || 'Unknown'}
+                      </TableCell>
+                      <TableCell sx={{ color: 'white' }}>
+                        {message.recipient?.uid || 'Unknown'}
+                      </TableCell>
+                      <TableCell sx={{ color: 'white' }}>
+                        {message.content.length > 30 
+                          ? `${message.content.substring(0, 30)}...` 
+                          : message.content}
                       </TableCell>
                       <TableCell>
                         <IconButton 
@@ -216,12 +254,26 @@ const FlaggedMessages = () => {
             </TableContainer>
             <TablePagination
               component="div"
-              count={2}
+              count={totalCount}
               page={page}
               onPageChange={handleChangePage}
               rowsPerPage={rowsPerPage}
               onRowsPerPageChange={handleChangeRowsPerPage}
-              sx={{ color: 'white' }}
+              sx={{ 
+                color: 'white',
+                '.MuiTablePagination-select': {
+                  color: 'white'
+                },
+                '.MuiTablePagination-selectIcon': {
+                  color: 'white'
+                },
+                '.MuiTablePagination-displayedRows': {
+                  color: 'white'
+                },
+                '.MuiSvgIcon-root': {
+                  color: 'white'
+                }
+              }}
             />
           </>
         )}
@@ -242,21 +294,24 @@ const FlaggedMessages = () => {
           }
         }}
       >
-        <DialogTitle>
+        <DialogTitle color="white">
           Review Flagged Message
         </DialogTitle>
         <DialogContent>
           {selected && (
             <>
               <Box sx={{ mb: 3, mt: 1 }}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Date: {selected.date}
+                <Typography variant="body2" color="white" gutterBottom>
+                  Sent: {formatDate(selected.sentAt)}
                 </Typography>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Round: {selected.round}
+                <Typography variant="body2" color="white" gutterBottom>
+                  Flagged: {formatDate(selected.flaggedAt)}
                 </Typography>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Flag Reason: {selected.reason}
+                <Typography variant="body2" color="white" gutterBottom>
+                  Sender ID: {selected.senderUid || 'Unknown'}
+                </Typography>
+                <Typography variant="body2" color="white" gutterBottom>
+                  Recipient ID: {selected.recipient?.uid || 'Unknown'}
                 </Typography>
               </Box>
               
@@ -293,12 +348,13 @@ const FlaggedMessages = () => {
             </>
           )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3 }}>
+        <DialogActions sx={{ px: 3, pb: 3, flexWrap: 'wrap', gap: 1 }}>
           <Button 
             variant="outlined" 
             onClick={handleCloseDialog} 
             color="inherit"
             disabled={!!actionType}
+            sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.3)' }}
           >
             Cancel
           </Button>
@@ -306,28 +362,37 @@ const FlaggedMessages = () => {
             variant="contained" 
             onClick={() => handleAction('approve')} 
             color="success"
-            startIcon={<CheckCircleIcon />}
+            startIcon={actionType === 'approve' ? <CircularProgress size={20} color="inherit" /> : <CheckCircleIcon />}
             disabled={!!actionType}
           >
-            {actionType === 'approve' ? <CircularProgress size={24} color="inherit" /> : 'Approve'}
+            Approve
           </Button>
           <Button 
             variant="contained" 
             onClick={() => handleAction('reject')} 
             color="error"
-            startIcon={<DeleteIcon />}
+            startIcon={actionType === 'reject' ? <CircularProgress size={20} color="inherit" /> : <DeleteIcon />}
             disabled={!!actionType}
           >
-            {actionType === 'reject' ? <CircularProgress size={24} color="inherit" /> : 'Reject'}
+            Reject
           </Button>
           <Button 
             variant="contained" 
-            onClick={() => handleAction('freeze')} 
+            onClick={() => handleAction('suspend_sender')} 
             color="warning"
-            startIcon={<BlockIcon />}
+            startIcon={actionType === 'suspend_sender' ? <CircularProgress size={20} color="inherit" /> : <BlockIcon />}
             disabled={!!actionType}
           >
-            {actionType === 'freeze' ? <CircularProgress size={24} color="inherit" /> : 'Freeze'}
+            Suspend Sender
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={handleSuspendUser} 
+            color="error"
+            startIcon={actionType === 'suspend_user' ? <CircularProgress size={20} color="inherit" /> : <PersonOffIcon />}
+            disabled={!!actionType}
+          >
+            Suspend Recipient
           </Button>
         </DialogActions>
       </Dialog>

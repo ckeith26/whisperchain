@@ -15,7 +15,8 @@ import {
   ListItemText,
   Divider,
   Avatar,
-  useTheme
+  useTheme,
+  CircularProgress
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import useStore from '../../store';
@@ -28,22 +29,36 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import UserManagement from './views/UserManagement';
 import SystemSettings from './views/SystemSettings';
+import axios from 'axios';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:9090/api';
 const drawerWidth = 240;
 
-const AdminPanel = () => {
+const AdminPanel = ({ view }) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const { authenticated, isAdmin, isModerator, user, logout } = useStore(state => state.authSlice);
+  const { token } = useStore(state => state.authSlice);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
+  const [stats, setStats] = useState({
+    userCount: 0,
+    moderatorCount: 0,
+    suspendedUserCount: 0,
+    moderatorRequestCount: 0,
+    messageCount: 0,
+    flaggedCount: 0,
+    loading: true
+  });
   
-  // Set appropriate initial view based on user role
+  // Set initial view based on prop or user role
   useEffect(() => {
-    if (authenticated && isModerator() && !isAdmin()) {
+    if (view && ['dashboard', 'users', 'settings', 'messages'].includes(view)) {
+      setActiveView(view);
+    } else if (authenticated && isModerator() && !isAdmin()) {
       setActiveView('messages');
     }
-  }, [authenticated, isAdmin, isModerator]);
+  }, [authenticated, isAdmin, isModerator, view]);
   
   // Redirect if not authenticated or not admin/moderator
   useEffect(() => {
@@ -51,6 +66,36 @@ const AdminPanel = () => {
       navigate('/');
     }
   }, [authenticated, isAdmin, isModerator, navigate]);
+
+  // Fetch dashboard statistics
+  useEffect(() => {
+    if (authenticated && isAdmin() && activeView === 'dashboard') {
+      fetchDashboardStats();
+    }
+  }, [authenticated, isAdmin, activeView, token]);
+
+  const fetchDashboardStats = async () => {
+    try {
+      setStats(prev => ({ ...prev, loading: true }));
+      
+      const response = await axios.get(`${API_URL}/admin/stats`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      setStats({
+        userCount: response.data.userCount || 0,
+        moderatorCount: response.data.moderatorCount || 0,
+        suspendedUserCount: response.data.suspendedUserCount || 0,
+        moderatorRequestCount: response.data.moderatorRequestCount || 0,
+        messageCount: response.data.messageCount || 0,
+        flaggedCount: response.data.flaggedCount || 0,
+        loading: false
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      setStats(prev => ({ ...prev, loading: false }));
+    }
+  };
   
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -64,6 +109,9 @@ const AdminPanel = () => {
   const handleChangeView = (view) => {
     setActiveView(view);
     setMobileOpen(false);
+    
+    // Navigate to the corresponding URL
+    navigate(`/admin/${view === 'dashboard' ? '' : view}`);
   };
   
   const drawer = (
@@ -187,32 +235,97 @@ const AdminPanel = () => {
               display: 'grid', 
               gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
               gap: 3,
+              mb: 3
             }}>
               <Paper sx={{ 
                 p: 3, 
                 bgcolor: 'rgba(25, 118, 210, 0.1)', 
                 borderRadius: 2,
                 border: '1px solid rgba(25, 118, 210, 0.2)',
+                position: 'relative'
               }}>
                 <Typography variant="h6" gutterBottom sx={{ color: 'white' }}>
-                  Users
+                  Regular Users
                 </Typography>
-                <Typography variant="h4" sx={{ color: 'white' }}>0</Typography>
+                {stats.loading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
+                    <CircularProgress size={24} sx={{ color: 'white' }} />
+                  </Box>
+                ) : (
+                  <Typography variant="h4" sx={{ color: 'white' }}>{stats.userCount}</Typography>
+                )}
                 <Typography variant="body2" sx={{ color: 'white' }}>
-                  Total registered users
+                  Active regular users
                 </Typography>
               </Paper>
               
               <Paper sx={{ 
                 p: 3, 
+                bgcolor: 'rgba(233, 30, 99, 0.1)', 
+                borderRadius: 2,
+                border: '1px solid rgba(233, 30, 99, 0.2)',
+                position: 'relative'
+              }}>
+                <Typography variant="h6" gutterBottom sx={{ color: 'white' }}>
+                  Moderators
+                </Typography>
+                {stats.loading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
+                    <CircularProgress size={24} sx={{ color: 'white' }} />
+                  </Box>
+                ) : (
+                  <Typography variant="h4" sx={{ color: 'white' }}>{stats.moderatorCount}</Typography>
+                )}
+                <Typography variant="body2" sx={{ color: 'white' }}>
+                  Platform moderators
+                </Typography>
+              </Paper>
+              
+              <Paper sx={{ 
+                p: 3, 
+                bgcolor: 'rgba(255, 152, 0, 0.1)', 
+                borderRadius: 2,
+                border: '1px solid rgba(255, 152, 0, 0.2)',
+                position: 'relative'
+              }}>
+                <Typography variant="h6" gutterBottom sx={{ color: 'white' }}>
+                  Moderator Requests
+                </Typography>
+                {stats.loading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
+                    <CircularProgress size={24} sx={{ color: 'white' }} />
+                  </Box>
+                ) : (
+                  <Typography variant="h4" sx={{ color: 'white' }}>{stats.moderatorRequestCount}</Typography>
+                )}
+                <Typography variant="body2" sx={{ color: 'white' }}>
+                  Pending moderator requests
+                </Typography>
+              </Paper>
+            </Box>
+            
+            <Box sx={{ 
+              display: 'grid', 
+              gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+              gap: 3,
+            }}>
+              <Paper sx={{ 
+                p: 3, 
                 bgcolor: 'rgba(76, 175, 80, 0.1)', 
                 borderRadius: 2,
                 border: '1px solid rgba(76, 175, 80, 0.2)',
+                position: 'relative'
               }}>
                 <Typography variant="h6" gutterBottom sx={{ color: 'white' }}>
                   Messages
                 </Typography>
-                <Typography variant="h4" sx={{ color: 'white' }}>0</Typography>
+                {stats.loading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
+                    <CircularProgress size={24} sx={{ color: 'white' }} />
+                  </Box>
+                ) : (
+                  <Typography variant="h4" sx={{ color: 'white' }}>{stats.messageCount}</Typography>
+                )}
                 <Typography variant="body2" sx={{ color: 'white' }}>
                   Total secure messages
                 </Typography>
@@ -223,13 +336,42 @@ const AdminPanel = () => {
                 bgcolor: 'rgba(211, 47, 47, 0.1)', 
                 borderRadius: 2,
                 border: '1px solid rgba(211, 47, 47, 0.2)',
+                position: 'relative'
               }}>
                 <Typography variant="h6" gutterBottom sx={{ color: 'white' }}>
                   Flagged Content
                 </Typography>
-                <Typography variant="h4" sx={{ color: 'white' }}>0</Typography>
+                {stats.loading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
+                    <CircularProgress size={24} sx={{ color: 'white' }} />
+                  </Box>
+                ) : (
+                  <Typography variant="h4" sx={{ color: 'white' }}>{stats.flaggedCount}</Typography>
+                )}
                 <Typography variant="body2" sx={{ color: 'white' }}>
                   Messages requiring review
+                </Typography>
+              </Paper>
+              
+              <Paper sx={{ 
+                p: 3, 
+                bgcolor: 'rgba(156, 39, 176, 0.1)', 
+                borderRadius: 2,
+                border: '1px solid rgba(156, 39, 176, 0.2)',
+                position: 'relative'
+              }}>
+                <Typography variant="h6" gutterBottom sx={{ color: 'white' }}>
+                  Suspended Users
+                </Typography>
+                {stats.loading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
+                    <CircularProgress size={24} sx={{ color: 'white' }} />
+                  </Box>
+                ) : (
+                  <Typography variant="h4" sx={{ color: 'white' }}>{stats.suspendedUserCount}</Typography>
+                )}
+                <Typography variant="body2" sx={{ color: 'white' }}>
+                  Currently suspended accounts
                 </Typography>
               </Paper>
             </Box>
@@ -265,7 +407,7 @@ const AdminPanel = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Typography variant="body2">{user?.name || user?.email || ''}</Typography>
             <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
-              {(user?.name || user?.email || '?')?.charAt(0).toUpperCase()}
+              {user && (user.name?.charAt(0) || user.email?.charAt(0) || 'A').toUpperCase()}
             </Avatar>
           </Box>
         </Toolbar>
@@ -326,4 +468,4 @@ const AdminPanel = () => {
   );
 };
 
-export default AdminPanel; 
+export default AdminPanel;

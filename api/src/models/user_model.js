@@ -75,13 +75,18 @@ const UserSchema = new Schema(
 // Hash password if provided and modified
 UserSchema.pre('save', async function (next) {
   const user = this;
+  // If password is not modified or doesn't exist, skip hashing
   if (!user.isModified('password') || !user.password) return next();
 
   try {
+    console.log('Hashing password for user:', user.email);
     const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(user.password, salt);
+    const hashedPassword = await bcrypt.hash(user.password, salt);
+
+    user.password = hashedPassword;
     next();
   } catch (err) {
+    console.error('Error hashing password:', err.message);
     next(new Error(`Error hashing password: ${err.message}`));
   }
 });
@@ -129,10 +134,14 @@ UserSchema.virtual('projects', {
 UserSchema.methods.comparePassword = async function (candidatePassword) {
   try {
     if (!this.password) {
+      console.error('Password field is not set for user:', this.email);
       throw new Error('Password field is not set. Include password in query.');
-    }
-    return await bcrypt.compare(candidatePassword, this.password);
+    }    
+    const result = await bcrypt.compare(candidatePassword, this.password);
+
+    return result;
   } catch (err) {
+    console.error('Error in comparePassword:', err.message);
     throw new Error(`Error comparing passwords: ${err.message}`);
   }
 };

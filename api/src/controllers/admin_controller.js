@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import { nanoid } from 'nanoid';
 import UserModel, { ROLES } from '../models/user_model';
+import MessageModel from '../models/message_model';
 import AuditLogModel, { ACTION_TYPES } from '../models/audit_log_model';
 
 dotenv.config();
@@ -159,6 +160,40 @@ export const getPendingUsers = async (req, res) => {
 
     return res.json({ pendingUsers: usersWithEmail });
   } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+// Get dashboard statistics (counts only)
+export const getDashboardStats = async (req, res) => {
+  try {
+    // Check if requester is admin
+    const admin = await UserModel.findOne({ uid: req.user.uid, role: ROLES.ADMIN });
+    if (!admin) {
+      return res.status(403).json({ error: 'Only administrators can access dashboard statistics' });
+    }
+    
+    // Get counts without fetching all the data
+    const regularUserCount = await UserModel.countDocuments({ role: ROLES.USER });
+    const moderatorCount = await UserModel.countDocuments({ role: ROLES.MODERATOR });
+    const suspendedUserCount = await UserModel.countDocuments({ isSuspended: true });
+    const moderatorRequestCount = await UserModel.countDocuments({
+      role: ROLES.IDLE,
+      'roleRequest.role': ROLES.MODERATOR,
+    });
+    const messageCount = await MessageModel.countDocuments({});
+    const flaggedCount = await MessageModel.countDocuments({ 'isFlagged.status': true });
+    
+    return res.json({
+      userCount: regularUserCount,
+      moderatorCount,
+      suspendedUserCount,
+      moderatorRequestCount,
+      messageCount,
+      flaggedCount,
+    });
+  } catch (error) {
+    console.error('Error getting dashboard stats:', error.message);
     return res.status(500).json({ error: error.message });
   }
 };

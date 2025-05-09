@@ -14,6 +14,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'whisperchain_secure_fallback_key';
 export const register = async (req, res) => {
   try {
     const { email, password, name, role } = req.body;
+    console.log('Registration attempt:', { email, role, passwordLength: password?.length });
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
@@ -31,25 +32,30 @@ export const register = async (req, res) => {
 
     // Generate a unique user ID
     const uid = nanoid(16);
-
-    // Create a new user
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
     
     // Use provided name or generate from email
     const userName = name || email.split('@')[0];
 
+    // Create a new user - do NOT hash the password here, let the pre-save hook do it
     const user = new UserModel({
       uid,
       email,
       name: userName,
-      password: hashedPassword,
+      password: password, // Plain password, will be hashed by the pre-save hook
       role: (role === 'user' || role === 'moderator') ? role : ROLES.IDLE,
       roleHistory: [{ role: role || ROLES.IDLE, changedAt: new Date() }],
       accountCreatedAt: new Date(),
     });
 
-    await user.save();
+    // Let the model's pre-save hook handle the password hashing
+    const savedUser = await user.save();
+    
+    console.log('User saved:', {
+      uid: savedUser.uid,
+      email: savedUser.email,
+      role: savedUser.role,
+      hasPassword: !!savedUser.password
+    });
 
     // Log user creation
     await new AuditLogModel({
@@ -64,7 +70,7 @@ export const register = async (req, res) => {
       sub: uid,
       iat: timestamp,
       exp: timestamp + (60 * 60 * 24 * 7), // 7 days
-      role: user.role
+      role: savedUser.role
     }, JWT_SECRET);
 
     return res.status(201).json({
@@ -72,10 +78,10 @@ export const register = async (req, res) => {
       message: 'Registration successful',
       token,
       user: {
-        uid: user.uid,
-        name: user.name,
-        email: user.email,
-        role: user.role,
+        uid: savedUser.uid,
+        name: savedUser.name,
+        email: savedUser.email,
+        role: savedUser.role,
       }
     });
   } catch (error) {
@@ -87,23 +93,46 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log('Login attempt:', { email, passwordLength: password?.length });
 
     // Find user by email and explicitly select the password field
     const user = await UserModel.findOne({ email }).select('+password');
     if (!user) {
+      console.log('User not found:', email);
       return res.status(401).json({ error: 'User does not exist' });
     }
 
+    console.log('User found:', { 
+      uid: user.uid, 
+      role: user.role, 
+      hasPassword: !!user.password, 
+      passwordLength: user.password?.length 
+    });
+
     // Check if user is suspended
     if (user.isSuspended) {
+      console.log('User is suspended:', email);
       return res.status(403).json({ error: 'Account is suspended' });
     }
 
-    // Compare passwords
-    console.log('Comparing passwords:', password, user.password);
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    // Check if password field exists
+    if (!user.password) {
+      console.log('Password field missing for user:', email);
+      return res.status(500).json({ error: 'User password not properly stored' });
+    }
+
+    // Compare passwords using the method from the User model
+    try {
+      console.log('Comparing passwords. Password exists:', !!user.password);
+      const isMatch = await user.comparePassword(password);
+      console.log('Password comparison result:', isMatch);
+      
+      if (!isMatch) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+    } catch (compareError) {
+      console.error('Error during password comparison:', compareError.message);
+      return res.status(500).json({ error: 'Error comparing passwords: ' + compareError.message });
     }
 
     // Create token
@@ -114,6 +143,8 @@ export const login = async (req, res) => {
       exp: timestamp + (60 * 60 * 24 * 7), // 7 days
       role: user.role
     }, JWT_SECRET);
+
+    console.log('Login successful for user:', email);
 
     // Return user info and token
     return res.json({
@@ -165,48 +196,55 @@ export const generateKeyPair = async (req, res) => {
 export const searchUsers = async (req, res) => {
   try {
     const { query } = req.query;
+    const page = parseInt(req.query.page) || 0;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = page * limit;
     
-    if (!query) {
-      return res.status(400).json({ error: 'Search query is required' });
+    // Get current user's ID from authentication
+    const currentUserUid = req.user.uid;
+    
+    let userQuery = {
+      role: ROLES.USER,
+      isSuspended: false,
+      uid: { $ne: currentUserUid } // Exclude current user
+    };
+    
+    // If search query is provided, search by name or email
+    if (query && query.trim() !== '') {
+      const searchRegex = { $regex: query, $options: 'i' };
+      
+      // Find users by email or name
+      const users = await UserModel.find({
+        $or: [
+          { email: searchRegex },
+          { name: searchRegex }
+        ],
+        ...userQuery
+      })
+      .select('uid name email')
+      .sort({ name: 1 })
+      .skip(skip)
+      .limit(limit);
+      
+      return res.json({ 
+        users,
+        hasMore: users.length === limit,
+        page
+      });
     }
     
-    // Search by email
-    const usersByEmail = await UserModel.find({
-      email: { $regex: query, $options: 'i' },
-    });
+    // If no query provided, return paginated list of all users
+    const users = await UserModel.find(userQuery)
+      .select('uid name email')
+      .sort({ name: 1 })
+      .skip(skip)
+      .limit(limit);
     
-    // Search by name
-    const usersByName = await UserModel.find({
-      name: { $regex: query, $options: 'i' },
+    return res.json({ 
+      users,
+      hasMore: users.length === limit,
+      page
     });
-    
-    // Combine results
-    const emailUids = usersByEmail.map(user => user.uid);
-    const nameUids = usersByName.map(user => user.uid);
-
-    // Get unique UIDs
-    const uniqueUids = [...new Set([...emailUids, ...nameUids])];
-
-    // Get user details for matching users
-    const userDetails = await Promise.all(
-      uniqueUids.map(async (uid) => {
-        const user = await UserModel.findOne({ uid });
-        if (user && !user.isSuspended) {
-          return {
-            uid: user.uid,
-            name: user.name,
-            email: user.email,
-            // Only return limited info for privacy
-          };
-        }
-        return null;
-      })
-    );
-
-    // Filter out null values
-    const filteredUsers = userDetails.filter(user => user !== null);
-
-    return res.json({ users: filteredUsers });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }

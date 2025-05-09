@@ -60,12 +60,27 @@ const App = () => {
         <ScrollToTop />
         <Routes>
           <Route path="/" element={
-            authenticated && isAdmin() ? <Navigate to="/admin" replace /> : <Home />
+            authenticated && isAdmin() ? <Navigate to="/admin" replace /> : 
+            authenticated ? <Navigate to="/messages/inbox" replace /> : <Home />
           } />
           
+          {/* Base messages route - redirect to send */}
           <Route path="/messages" element={
+            <Navigate to="/messages/send" replace />
+          } />
+          
+          {/* Inbox route */}
+          <Route path="/messages/inbox" element={
             authenticated && isAdmin() ? <Navigate to="/admin" replace /> : 
-            authenticated ? <Chat /> : <Navigate to="/?action=signin" replace />
+            authenticated && isModerator() ? <Navigate to="/moderator" replace /> :
+            authenticated ? <Chat view="received" /> : <Navigate to="/?action=signin" replace />
+          } />
+          
+          {/* Send messages route */}
+          <Route path="/messages/send" element={
+            authenticated && isAdmin() ? <Navigate to="/admin" replace /> : 
+            authenticated && isModerator() ? <Navigate to="/moderator" replace /> :
+            authenticated ? <Chat view="send" /> : <Navigate to="/?action=signin" replace />
           } />
           
           <Route path="/profile" element={
@@ -81,13 +96,27 @@ const App = () => {
             authenticated && isAdmin() ? <AdminPanel /> : <Navigate to="/?action=signin" replace />
           } />
           
+          <Route path="/admin/dashboard" element={
+            authenticated && isAdmin() ? <AdminPanel view="dashboard" /> : <Navigate to="/?action=signin" replace />
+          } />
+          
+          <Route path="/admin/users" element={
+            authenticated && isAdmin() ? <AdminPanel view="users" /> : <Navigate to="/?action=signin" replace />
+          } />
+          
+          <Route path="/admin/settings" element={
+            authenticated && isAdmin() ? <AdminPanel view="settings" /> : <Navigate to="/?action=signin" replace />
+          } />
+          
           {/* Moderator routes */}
           <Route path="/moderator" element={
             authenticated && isModerator() ? <ModeratorPanel /> : <Navigate to="/?action=signin" replace />
           } />
           
           {/* Authentication routes redirect to home page with modals */}
-          <Route path="/signin" element={<Navigate to="/?action=signin" replace />} />
+          <Route path="/signin" element={
+            authenticated ? <Navigate to="/messages/inbox" replace /> : <Navigate to="/?action=signin" replace />
+          } />
           <Route path="/signup" element={<Navigate to="/?action=signup" replace />} />
           
           <Route path="*" element={<NotFound />} />

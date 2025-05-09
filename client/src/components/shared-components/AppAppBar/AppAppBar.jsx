@@ -25,7 +25,8 @@ import {
   RadioGroup,
   FormControlLabel,
   Radio,
-  CircularProgress
+  CircularProgress,
+  Badge
 } from '@mui/material';
 import useStore from '../../../store';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -75,6 +76,7 @@ const AppAppBar = ({
   const navigate = useNavigate();
   const location = useLocation();
   const { authenticated, user, login, register, logout } = useStore(state => state.authSlice);
+  const { unreadMessageCount, flaggedMessageCount } = useStore(state => state.userSlice);
   const [open, setOpen] = useState(false);
   const [anchorElUser, setAnchorElUser] = useState(null);
   
@@ -125,14 +127,17 @@ const AppAppBar = ({
       });
       
       if (response.success) {
-        effectiveHandleCloseSignIn();
-        setLoginEmail('');
-        setLoginPassword('');
-        
-        // Redirect to admin page if user is an admin
-        if (response.isAdmin) {
-          navigate('/admin');
-        }
+        // Add a small delay before closing dialog to ensure state updates
+        setTimeout(() => {
+          effectiveHandleCloseSignIn();
+          setLoginEmail('');
+          setLoginPassword('');
+          
+          // Redirect to admin page if user is an admin
+          if (response.isAdmin) {
+            navigate('/admin');
+          }
+        }, 100);
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -259,13 +264,22 @@ const AppAppBar = ({
   const avatarLetter = user?.username ? user.username.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : 'W');
 
   const tabs = [
-    { label: 'Messages', path: '/messages', icon: <MessageIcon fontSize="small" />, requireAuth: true },
+    { 
+      label: 'Messages', 
+      path: '/messages/inbox', 
+      icon: <MessageIcon fontSize="small" />, 
+      requireAuth: true,
+      badge: unreadMessageCount > 0 ? unreadMessageCount : null
+    },
     { label: 'Profile', path: '/profile', icon: <AccountCircleIcon fontSize="small" />, requireAuth: true },
   ];
 
-  const filteredTabs = tabs.filter(tab => 
-    !tab.requireAuth || (tab.requireAuth && authenticated)
-  );
+  const filteredTabs = tabs.filter(tab => {
+    if (!authenticated) return tab.showUnauthenticated;
+    if (tab.requiresAdmin && !isAdmin()) return false;
+    if (tab.requiresUser && (isAdmin() || isModerator())) return false;
+    return true;
+  });
 
   return (
     <AppBar
@@ -317,22 +331,49 @@ const AppAppBar = ({
             
             {/* Desktop navigation tabs */}
             <Box sx={{ display: { xs: 'none', md: 'flex' } }}>
-              {filteredTabs.map((tab) => (
-                <Button
-                  key={tab.label}
-                  onClick={() => navigate(tab.path)}
-                  variant={location.pathname === tab.path ? 'contained' : 'text'}
-                  color={location.pathname === tab.path ? 'secondary' : 'inherit'}
-                  size="small"
-                  sx={{ 
-                    mx: 0.5, 
-                    whiteSpace: 'nowrap',
-                    color: location.pathname === tab.path ? undefined : '#ffffff'
-                  }}
-                >
-                  {tab.label}
-                </Button>
-              ))}
+              {filteredTabs.map((tab) => {
+                // Special handling for Messages tab to highlight it on any messages route
+                const isSelected = tab.path === '/messages/inbox' ? 
+                  location.pathname.startsWith('/messages/') : 
+                  location.pathname === tab.path;
+                
+                // Check if this is the moderator tab and we need to show a notification badge
+                const showModeratorBadge = tab.path === '/moderator' && 
+                  (isModerator() || isAdmin()) && 
+                  flaggedMessageCount > 0;
+                
+                return (
+                  <Button
+                    key={tab.label}
+                    onClick={() => navigate(tab.path)}
+                    variant={isSelected ? 'contained' : 'text'}
+                    color={isSelected ? 'secondary' : 'inherit'}
+                    size="small"
+                    sx={{ 
+                      mx: 0.5, 
+                      whiteSpace: 'nowrap',
+                      color: isSelected ? undefined : '#ffffff'
+                    }}
+                    startIcon={tab.badge !== null ? (
+                      <Badge badgeContent={tab.badge} color="error" max={99}>
+                        {tab.icon}
+                      </Badge>
+                    ) : showModeratorBadge ? (
+                      <Badge 
+                        badgeContent={flaggedMessageCount} 
+                        color="error" 
+                        max={99}
+                      >
+                        {tab.icon}
+                      </Badge>
+                    ) : (
+                      tab.icon
+                    )}
+                  >
+                    {tab.label}
+                  </Button>
+                );
+              })}
             </Box>
           </Box>
 
@@ -423,7 +464,7 @@ const AppAppBar = ({
                 <MenuItem onClick={() => { navigate('/profile'); handleCloseUserMenu(); }}>
                   <Typography>Profile</Typography>
                 </MenuItem>
-                <MenuItem onClick={() => { navigate('/messages'); handleCloseUserMenu(); }}>
+                <MenuItem onClick={() => { navigate('/messages/inbox'); handleCloseUserMenu(); }}>
                   <Typography>Messages</Typography>
                 </MenuItem>
                 {user?.role === 'admin' && (
@@ -478,20 +519,47 @@ const AppAppBar = ({
                 <Typography color="#ffffff">Home</Typography>
               </MenuItem>
 
-              {filteredTabs.map((tab) => (
-                <MenuItem
-                  key={tab.label}
-                  onClick={() => navigateTo(tab.path)}
-                  selected={location.pathname === tab.path}
-                  sx={{ 
-                    '&.Mui-selected': {
-                      bgcolor: alpha('#ffffff', 0.1),
-                    }
-                  }}
-                >
-                  <Typography color="#ffffff">{tab.label}</Typography>
-                </MenuItem>
-              ))}
+              {filteredTabs.map((tab) => {
+                // Special handling for Messages tab in mobile view
+                const isSelected = tab.path === '/messages/inbox' ? 
+                  location.pathname.startsWith('/messages/') : 
+                  location.pathname === tab.path;
+                
+                // Check if this is the moderator tab and we need to show a notification badge
+                const showModeratorBadge = tab.path === '/moderator' && 
+                  (isModerator() || isAdmin()) && 
+                  flaggedMessageCount > 0;
+                
+                return (
+                  <MenuItem
+                    key={tab.label}
+                    onClick={() => navigateTo(tab.path)}
+                    selected={isSelected}
+                    sx={{ 
+                      '&.Mui-selected': {
+                        bgcolor: alpha('#ffffff', 0.1),
+                      }
+                    }}
+                  >
+                    {tab.badge !== null ? (
+                      <Badge color="error" badgeContent={tab.badge} sx={{ mr: 1 }}>
+                        {tab.icon}
+                      </Badge>
+                    ) : showModeratorBadge ? (
+                      <Badge 
+                        badgeContent={flaggedMessageCount} 
+                        color="error" 
+                        max={99}
+                      >
+                        {tab.icon}
+                      </Badge>
+                    ) : (
+                      tab.icon
+                    )}
+                    <Typography color="#ffffff" sx={{ ml: tab.icon ? 1 : 0 }}>{tab.label}</Typography>
+                  </MenuItem>
+                );
+              })}
 
               {authenticated && user?.role === 'admin' && (
                 <MenuItem

@@ -50,7 +50,7 @@ const UserManagement = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedRole, setSelectedRole] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
-  const { token } = useStore(state => state.authSlice);
+  const { token, user: currentUser } = useStore(state => state.authSlice);
 
   useEffect(() => {
     fetchUsers();
@@ -97,6 +97,10 @@ const UserManagement = () => {
   };
 
   const handleEditUser = (user) => {
+    if (currentUser && currentUser.uid === user.uid) {
+      toast.error("You cannot edit your own role");
+      return;
+    }
     setSelectedUser(user);
     setSelectedRole(user.role);
     setOpenDialog(true);
@@ -144,6 +148,11 @@ const UserManagement = () => {
   };
 
   const handleToggleSuspension = async (user) => {
+    if (currentUser && currentUser.uid === user.uid) {
+      toast.error("You cannot suspend your own account");
+      return;
+    }
+    
     try {
       const response = await axios.post(`${API_URL}/admin/toggleSuspension`, 
         { userId: user.uid },
@@ -359,23 +368,33 @@ const UserManagement = () => {
                     </TableCell>
                     <TableCell>
                       <Stack direction="row" spacing={1}>
-                        <Tooltip title="Edit Role">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => handleEditUser(user)}
-                            sx={{ color: 'primary.main' }}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
+                        <Tooltip title={currentUser && currentUser.uid === user.uid ? "Cannot edit own role" : "Edit Role"}>
+                          <span>
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleEditUser(user)}
+                              sx={{ color: 'primary.main' }}
+                              disabled={currentUser && currentUser.uid === user.uid}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </span>
                         </Tooltip>
-                        <Tooltip title={user.status === 'suspended' ? 'Unsuspend User' : 'Suspend User'}>
-                          <IconButton 
-                            size="small" 
-                            onClick={() => handleToggleSuspension(user)}
-                            sx={{ color: user.status === 'suspended' ? 'success.main' : 'error.main' }}
-                          >
-                            <BlockIcon fontSize="small" />
-                          </IconButton>
+                        <Tooltip title={
+                          currentUser && currentUser.uid === user.uid 
+                            ? "Cannot suspend own account" 
+                            : user.status === 'suspended' ? 'Unsuspend User' : 'Suspend User'
+                        }>
+                          <span>
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleToggleSuspension(user)}
+                              sx={{ color: user.status === 'suspended' ? 'success.main' : 'error.main' }}
+                              disabled={currentUser && currentUser.uid === user.uid}
+                            >
+                              <BlockIcon fontSize="small" />
+                            </IconButton>
+                          </span>
                         </Tooltip>
                       </Stack>
                     </TableCell>

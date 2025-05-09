@@ -16,7 +16,8 @@ import {
   ListItemText,
   Divider,
   Avatar,
-  useTheme
+  useTheme,
+  Badge
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import useStore from '../../store';
@@ -53,15 +54,30 @@ const ModeratorPanel = () => {
   const theme = useTheme();
   const navigate = useNavigate();
   const { authenticated, isModerator, user, logout } = useStore(state => state.authSlice);
+  const { flaggedMessageCount, fetchFlaggedMessageCount } = useStore(state => state.userSlice);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   
   // Redirect if not authenticated or not moderator
   useEffect(() => {
-    if (!authenticated || !isModerator()) {
+    if (!authenticated || (!isModerator() && user?.role !== 'ADMIN')) {
       navigate('/');
     }
-  }, [authenticated, isModerator, navigate]);
+  }, [authenticated, isModerator, navigate, user]);
+
+  // Fetch flagged message count on load
+  useEffect(() => {
+    if (authenticated && (isModerator() || user.role === 'ADMIN')) {
+      fetchFlaggedMessageCount();
+      
+      // Set up interval to check flagged messages periodically
+      const interval = setInterval(() => {
+        fetchFlaggedMessageCount();
+      }, 60000); // Check every minute
+      
+      return () => clearInterval(interval);
+    }
+  }, [authenticated, isModerator, fetchFlaggedMessageCount, user]);
   
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -93,9 +109,46 @@ const ModeratorPanel = () => {
           sx={{ '&.Mui-selected': { bgcolor: 'rgba(255,255,255,0.1)' } }}
         >
           <ListItemIcon sx={{ color: 'white' }}>
-            <FlagIcon />
+            <Badge 
+              badgeContent={flaggedMessageCount} 
+              color="error"
+              max={99}
+              sx={{
+                '& .MuiBadge-badge': {
+                  right: -3,
+                  top: 3,
+                }
+              }}
+            >
+              <FlagIcon />
+            </Badge>
           </ListItemIcon>
-          <ListItemText primary="Flagged Messages" />
+          <ListItemText 
+            primary={
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                Flagged Messages
+                {flaggedMessageCount > 0 && (
+                  <Box
+                    component="span"
+                    sx={{
+                      ml: 1,
+                      bgcolor: 'error.main',
+                      color: 'white',
+                      borderRadius: '50%',
+                      width: 20,
+                      height: 20,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '0.75rem',
+                    }}
+                  >
+                    {flaggedMessageCount > 99 ? '99+' : flaggedMessageCount}
+                  </Box>
+                )}
+              </Box>
+            }
+          />
         </ListItem>
         <ListItem 
           button 
@@ -121,7 +174,7 @@ const ModeratorPanel = () => {
     </Box>
   );
   
-  if (!authenticated || !isModerator()) {
+  if (!authenticated || (!isModerator() && user?.role !== 'ADMIN')) {
     return null; // Will redirect via useEffect
   }
   
@@ -169,7 +222,16 @@ const ModeratorPanel = () => {
             textColor="inherit"
             indicatorColor="secondary"
           >
-            <Tab icon={<FlagIcon />} label="Flagged" />
+            <Tab icon={
+              <Badge 
+                badgeContent={flaggedMessageCount} 
+                color="error"
+                max={99}
+              >
+                <FlagIcon />
+              </Badge>
+            } 
+            label="Flagged" />
             <Tab icon={<HistoryIcon />} label="Audit Logs" />
           </Tabs>
         </Box>

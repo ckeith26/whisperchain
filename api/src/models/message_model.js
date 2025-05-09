@@ -7,6 +7,7 @@ const MessageSchema = new Schema({
   senderToken: { type: String, required: true, ref: 'AuthToken' },
   recipientUid: { type: String, required: true, ref: 'User' },
   sentAt: { type: Date, default: Date.now },
+  isRead: { type: Boolean, default: false }, // Track if message has been read
   isFlagged: {
     status: { type: Boolean, default: false },
     timestamp: { type: Date },

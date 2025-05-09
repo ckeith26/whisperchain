@@ -4,9 +4,13 @@ import mongoose, { Schema } from 'mongoose';
 const ACTION_TYPES = {
   USER_CREATED: 'user_created',
   USER_ROLE_CHANGED: 'user_role_changed',
+  USER_SUSPENDED: 'user_suspended',
+  USER_UNSUSPENDED: 'user_unsuspended',
   MESSAGE_SENT: 'message_sent',
   MESSAGE_READ: 'message_read',
   MESSAGE_FLAGGED: 'message_flagged',
+  MESSAGE_UNFLAGGED: 'message_unflagged',
+  MESSAGE_MODERATED: 'message_moderated',
   TOKEN_FROZEN: 'token_frozen',
 };
 

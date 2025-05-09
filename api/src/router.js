@@ -39,6 +39,9 @@ router.route('/admin/assignRole')
 router.route('/admin/pendingUsers')
   .get(requireAuth, requireAdmin, AdminController.getPendingUsers);
 
+router.route('/admin/stats')
+  .get(requireAuth, requireAdmin, AdminController.getDashboardStats);
+
 // Auth routes
 router.route('/auth/register')
   .post(AuthController.register);
@@ -53,21 +56,39 @@ router.route('/auth/generateKeyPair')
   .post(requireAuth, AuthController.generateKeyPair);
 
 router.route('/auth/searchUsers')
-  .get(requireAuth, requireRole(ROLES.SENDER), AuthController.searchUsers);
+  .get(requireAuth, requireRole(ROLES.USER), AuthController.searchUsers);
 
 // Message routes
 router.route('/messages/send')
-  .post(MessageController.sendMessage);
+  .post(requireAuth, requireRole(ROLES.USER), MessageController.sendMessage);
 
 router.route('/messages')
-  .get(requireAuth, requireRole(ROLES.RECIPIENT), MessageController.getMessages);
+  .get(requireAuth, requireRole(ROLES.USER), MessageController.getMessages);
+
+router.route('/messages/sent')
+  .get(requireAuth, requireRole(ROLES.USER), MessageController.getSentMessages);
 
 router.route('/messages/flag')
-  .post(requireAuth, requireRole(ROLES.RECIPIENT), MessageController.flagMessage);
+  .post(requireAuth, requireRole(ROLES.USER), MessageController.flagMessage);
+
+router.route('/messages/markAsRead')
+  .post(requireAuth, requireRole(ROLES.USER), MessageController.markMessagesAsRead);
+
+router.route('/messages/unread/count')
+  .get(requireAuth, requireRole(ROLES.USER), MessageController.getUnreadMessageCount);
 
 // Moderator routes
 router.route('/moderator/flaggedMessages')
   .get(requireAuth, requireModerator, ModeratorController.getFlaggedMessages);
+
+router.route('/moderator/flagged/count')
+  .get(requireAuth, requireModerator, ModeratorController.getFlaggedMessageCount);
+
+router.route('/moderator/moderateMessage')
+  .post(requireAuth, requireModerator, ModeratorController.moderateMessage);
+
+router.route('/moderator/suspendUser')
+  .post(requireAuth, requireModerator, ModeratorController.suspendUser);
 
 router.route('/moderator/freezeToken')
   .post(requireAuth, requireModerator, ModeratorController.freezeToken);
@@ -116,4 +137,6 @@ export default router;
 //   res.json({ received: true });
 // });
 
-
+// router.get('/echo', (req, res) => {
+//   res.json({ received: true });
+// });
