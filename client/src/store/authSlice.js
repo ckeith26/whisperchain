@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { api } from '../api/axios';
 import jwtDecode from 'jwt-decode';
 import { toast } from 'react-toastify';
 
@@ -65,7 +66,7 @@ const authSlice = (set, get) => ({
       }
 
       // Token is valid, fetch regular user profile
-      const response = await axios.get(`${API_URL}/auth/profile`, {
+      const response = await api.get(`/auth/profile`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -113,7 +114,7 @@ const authSlice = (set, get) => ({
   // Login user
   login: async (credentials) => {
     try {
-      const response = await axios.post(`${API_URL}/auth/login`, credentials);
+      const response = await api.post(`/auth/login`, credentials);
       const { token, user } = response.data;
       
       localStorage.setItem('token', token);
@@ -139,7 +140,7 @@ const authSlice = (set, get) => ({
   // Register new user
   register: async (userData) => {
     try {
-      const response = await axios.post(`${API_URL}/auth/register`, userData);
+      const response = await api.post(`/auth/register`, userData);
       const { token, user } = response.data;
       
       localStorage.setItem('token', token);

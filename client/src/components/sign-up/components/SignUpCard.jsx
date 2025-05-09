@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Alert,
   Box,
@@ -13,6 +13,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Backdrop,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import useStore from '../../../store';
@@ -28,7 +29,22 @@ export default function SignUpCard() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [apiWarmupTime, setApiWarmupTime] = useState(0);
   const register = useStore((state) => state.authSlice.register);
+
+  // Timer for API warmup notification
+  useEffect(() => {
+    let timer;
+    if (loading) {
+      setApiWarmupTime(0);
+      timer = setInterval(() => {
+        setApiWarmupTime(prev => prev + 1);
+      }, 1000);
+    }
+    return () => {
+      clearInterval(timer);
+    };
+  }, [loading]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -72,6 +88,7 @@ export default function SignUpCard() {
     }
 
     setLoading(true);
+    setApiWarmupTime(0);
 
     try {
       const { confirmPassword, preferredRole, ...registrationData } = formData;
@@ -106,6 +123,7 @@ export default function SignUpCard() {
         flexDirection: 'column',
         minWidth: { xs: '100%', sm: '450px' },
         maxWidth: '550px',
+        position: 'relative',
       }}
     >
       <Typography component="h1" variant="h4" color="primary" align="center" gutterBottom>
@@ -218,6 +236,36 @@ export default function SignUpCard() {
           </Typography>
         </Box>
       </Box>
+      
+      {/* Enhanced loading indicator with API warmup message */}
+      <Backdrop
+        sx={{ 
+          color: '#fff', 
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          flexDirection: 'column',
+          position: 'absolute',
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          borderRadius: 'inherit'
+        }}
+        open={loading}
+      >
+        <CircularProgress color="inherit" size={60} />
+        <Box sx={{ mt: 3, textAlign: 'center', px: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Creating Your Account...
+          </Typography>
+          {apiWarmupTime > 3 && (
+            <Typography variant="body2">
+              Please wait while the API is warming up ({apiWarmupTime}s)
+            </Typography>
+          )}
+          {apiWarmupTime > 10 && (
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              The API may take up to 30 seconds to start after inactivity
+            </Typography>
+          )}
+        </Box>
+      </Backdrop>
     </Paper>
   );
 } 

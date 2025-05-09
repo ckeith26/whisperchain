@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import useStore from './store';
+import { setupInterceptors } from './api/axios';
 import NotFound from './components/shared-components/NotFound';
 import Home from './components/home/Home';
 import Chat from './components/chat/Chat';
@@ -15,6 +16,9 @@ import LoadingPage from './components/shared-components/LoadingPage';
 import { useLocation } from 'react-router-dom';
 import './styles.scss';
 
+// Set up axios interceptors for API connection detection
+setupInterceptors();
+
 const ScrollToTop = () => {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -25,10 +29,28 @@ const ScrollToTop = () => {
 
 const App = () => {
   const { loadUserProfile, initialized, authenticated, isAdmin, isModerator } = useStore(state => state.authSlice);
+  const { checkApiConnection } = useStore(state => state.userSlice);
 
+  // Load user profile on mount
   useEffect(() => {
     loadUserProfile();
   }, [loadUserProfile]);
+  
+  // Set up periodic API connection check
+  useEffect(() => {
+    if (authenticated) {
+      // Check API connection immediately
+      checkApiConnection();
+      
+      // Then check every 30 seconds
+      const intervalId = setInterval(() => {
+        checkApiConnection();
+      }, 30000);
+      
+      // Clean up interval on unmount or when authentication state changes
+      return () => clearInterval(intervalId);
+    }
+  }, [authenticated, checkApiConnection]);
   
   if (!initialized) {
     return <LoadingPage />;

@@ -21,6 +21,12 @@ router.route('/')
     res.json({ welcome: 'WhisperChain+ API' });
   });
 
+// Health check endpoint for API connectivity detection
+router.route('/health')
+  .get(async (req, res) => {
+    res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+  });
+
 // WhisperChain+ Routes
 
 // Admin routes

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { api } from '../api/axios';
 import { toast } from 'react-toastify';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:9090/api';
@@ -35,7 +36,7 @@ const userSlice = (set, get) => ({
         }
       });
       
-      const response = await axios.get(`${API_URL}/messages?page=${page}&limit=12`, {
+      const response = await api.get(`/messages?page=${page}&limit=12`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -113,7 +114,7 @@ const userSlice = (set, get) => ({
         encryptedMessage: messageData.content
       };
       
-      const response = await axios.post(`${API_URL}/messages/send`, formattedData, {
+      const response = await api.post(`/messages/send`, formattedData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -140,7 +141,7 @@ const userSlice = (set, get) => ({
       const currentlyFlagged = currentMessage?.flagged || false;
       
       // Send request to toggle flag status
-      await axios.post(`${API_URL}/messages/flag`, { 
+      await api.post(`/messages/flag`, { 
         messageId,
         unflag: currentlyFlagged // Send unflag: true when we want to unflag
       }, {
@@ -177,7 +178,7 @@ const userSlice = (set, get) => ({
         state.userSlice.userPage = 0; // Reset pagination when performing a new search
       });
       
-      const response = await axios.get(`${API_URL}/auth/searchUsers?query=${query}&page=0&limit=10`, {
+      const response = await api.get(`/auth/searchUsers?query=${query}&page=0&limit=10`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -212,7 +213,7 @@ const userSlice = (set, get) => ({
         }
       });
       
-      const response = await axios.get(`${API_URL}/messages/sent?page=${page}&limit=12`, {
+      const response = await api.get(`/messages/sent?page=${page}&limit=12`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -276,7 +277,7 @@ const userSlice = (set, get) => ({
         state.userSlice.userPage = 0; // Reset pagination
       });
       
-      const response = await axios.get(`${API_URL}/auth/searchUsers?page=0&limit=10`, {
+      const response = await api.get(`/auth/searchUsers?page=0&limit=10`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -308,9 +309,9 @@ const userSlice = (set, get) => ({
       set(state => { state.userSlice.userLoading = true; });
       
       const nextPage = userPage + 1;
-      const url = `${API_URL}/auth/searchUsers?page=${nextPage}&limit=10${query ? `&query=${query}` : ''}`;
+      const url = `/auth/searchUsers?page=${nextPage}&limit=10${query ? `&query=${query}` : ''}`;
       
-      const response = await axios.get(url, {
+      const response = await api.get(url, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -341,7 +342,7 @@ const userSlice = (set, get) => ({
       // Only make API call if there are unread messages
       if (get().userSlice.unreadMessageCount > 0) {
         // Call API to mark messages as read
-        await axios.post(`${API_URL}/messages/markAsRead`, {}, {
+        await api.post(`/messages/markAsRead`, {}, {
           headers: { Authorization: `Bearer ${token}` }
         });
       }
@@ -386,7 +387,7 @@ const userSlice = (set, get) => ({
       }
       
       // Get only unread message count
-      const response = await axios.get(`${API_URL}/messages/unread/count`, {
+      const response = await api.get(`/messages/unread/count`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -411,7 +412,7 @@ const userSlice = (set, get) => ({
     if (!token) return { success: false, message: 'Not authenticated' };
     
     try {
-      const response = await axios.get(`${API_URL}/moderator/flagged/count`, {
+      const response = await api.get(`/moderator/flagged/count`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -429,6 +430,21 @@ const userSlice = (set, get) => ({
     }
   },
   
+  // Add this function to check API connection 
+  checkApiConnection: async () => {
+    try {
+      await api.get('/health');
+      return { success: true };
+    } catch (error) {
+      // If we can't connect to the API health endpoint, trigger logout
+      const { authenticated, logout } = get().authSlice;
+      if (authenticated) {
+        toast.error('Connection to server lost. You have been signed out.');
+        logout();
+      }
+      return { success: false };
+    }
+  }
 });
 
 export default userSlice; 
