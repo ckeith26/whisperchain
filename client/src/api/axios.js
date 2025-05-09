@@ -3,12 +3,12 @@ import { toast } from 'react-toastify';
 import useStore from '../store';
 
 // Get the API URL from environment variables or use default
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:9090/api';
+const API_URL = import.meta.env.VITE_API_URL;
 
 // Create axios instance with default config
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 30000, // 30 seconds timeout
+  timeout: 55000, // 60 seconds timeout
 });
 
 // Flag to prevent multiple logout calls

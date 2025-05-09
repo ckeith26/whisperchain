@@ -31,7 +31,7 @@ import UserManagement from './views/UserManagement';
 import SystemSettings from './views/SystemSettings';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:9090/api';
+const API_URL = import.meta.env.VITE_API_URL;
 const drawerWidth = 240;
 
 const AdminPanel = ({ view }) => {

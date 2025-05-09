@@ -87,7 +87,7 @@ const Navbar = () => {
             onClick={handleMenuOpen}
             size="small"
           >
-            <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
+            <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
               {avatarLetter}
             </Avatar>
           </IconButton>

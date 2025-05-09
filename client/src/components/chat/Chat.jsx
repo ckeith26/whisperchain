@@ -344,14 +344,19 @@ const Chat = ({ view }) => {
             <Typography variant="h4" component="h1" sx={{ color: 'white', fontWeight: 'bold' }}>
               {viewMode === 'received' ? 'Your Messages' : 'Send Message'}
             </Typography>
-            <Box>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: { xs: 2, sm: 0 },
+              pl: { xs: 1, sm: 0 }
+            }}>
               <Button 
                 variant="outlined"
                 onClick={handleToggleView}
                 sx={{ 
                   color: 'white', 
                   borderColor: 'rgba(255,255,255,0.3)',
-                  mr: 2,
+                  mr: { xs: 0, sm: 2 },
                   '&:hover': {
                     borderColor: 'white',
                     backgroundColor: 'rgba(255,255,255,0.05)'

@@ -3,7 +3,7 @@ import { api } from '../api/axios';
 import jwtDecode from 'jwt-decode';
 import { toast } from 'react-toastify';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:9090/api';
+const API_URL = import.meta.env.VITE_API_URL;
 
 const authSlice = (set, get) => ({
   token: localStorage.getItem('token'),

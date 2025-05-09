@@ -108,7 +108,7 @@ const Profile = () => {
                 sx={{ 
                   width: 100, 
                   height: 100, 
-                  bgcolor: theme.palette.secondary.main,
+                  bgcolor: theme.palette.primary.main,
                   fontSize: '2.5rem',
                   mr: { xs: 0, sm: 4 },
                   mb: { xs: 2, sm: 0 }

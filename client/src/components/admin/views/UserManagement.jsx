@@ -37,7 +37,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import useStore from '../../../store';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:9090/api';
+const API_URL = import.meta.env.VITE_API_URL;
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);

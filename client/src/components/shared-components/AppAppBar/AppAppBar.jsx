@@ -347,7 +347,7 @@ const AppAppBar = ({
                     key={tab.label}
                     onClick={() => navigate(tab.path)}
                     variant={isSelected ? 'contained' : 'text'}
-                    color={isSelected ? 'secondary' : 'inherit'}
+                    color={isSelected ? 'primary' : 'inherit'}
                     size="small"
                     sx={{ 
                       mx: 0.5, 
@@ -439,14 +439,23 @@ const AppAppBar = ({
                 <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
                   <Avatar 
                     alt={user?.username || 'User'} 
-                    sx={{ bgcolor: 'secondary.main', width: 32, height: 32 }}
+                    sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}
                   >
                     {avatarLetter}
                   </Avatar>
                 </IconButton>
               </Tooltip>
               <Menu
-                sx={{ mt: '45px' }}
+                sx={{ 
+                  mt: '45px',
+                  zIndex: 20002,
+                  '& .MuiPaper-root': {
+                    backgroundColor: 'rgba(13, 37, 56, 0.95)',
+                    backdropFilter: 'blur(10px)',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                  }
+                }}
                 id="menu-appbar-user"
                 anchorEl={anchorElUser}
                 anchorOrigin={{
@@ -462,18 +471,21 @@ const AppAppBar = ({
                 onClose={handleCloseUserMenu}
               >
                 <MenuItem onClick={() => { navigate('/profile'); handleCloseUserMenu(); }}>
-                  <Typography>Profile</Typography>
+                  <Typography color="#ffffff">Profile</Typography>
                 </MenuItem>
                 <MenuItem onClick={() => { navigate('/messages/inbox'); handleCloseUserMenu(); }}>
-                  <Typography>Messages</Typography>
+                  <Typography color="#ffffff">Messages</Typography>
                 </MenuItem>
                 {user?.role === 'admin' && (
                   <MenuItem onClick={() => { navigate('/admin'); handleCloseUserMenu(); }}>
-                    <Typography>Admin Panel</Typography>
+                    <Typography color="#ffffff">Admin Panel</Typography>
                   </MenuItem>
                 )}
                 <Divider />
-                <MenuItem onClick={handleLogout}>
+                <MenuItem onClick={() => {
+                  handleLogout();
+                  setOpen(false);
+                }}>
                   <Typography color="error">Logout</Typography>
                 </MenuItem>
               </Menu>
@@ -496,8 +508,12 @@ const AppAppBar = ({
               sx: {
                 top: 'var(--template-frame-height, 0px)',
                 bgcolor: '#050e1a',
-                color: '#ffffff'
+                color: '#ffffff',
+                zIndex: 20003,
               },
+            }}
+            sx={{
+              zIndex: 20003,
             }}
           >
             <Box sx={{ p: 2, backgroundColor: '#050e1a' }}>
@@ -579,15 +595,24 @@ const AppAppBar = ({
 
               {!authenticated ? (
                 <>
-                  <MenuItem onClick={effectiveHandleOpenSignIn}>
+                  <MenuItem onClick={() => {
+                    effectiveHandleOpenSignIn();
+                    setOpen(false);
+                  }}>
                     <Typography color="#ffffff">Sign in</Typography>
                   </MenuItem>
-                  <MenuItem onClick={effectiveHandleOpenSignUp}>
+                  <MenuItem onClick={() => {
+                    effectiveHandleOpenSignUp();
+                    setOpen(false);
+                  }}>
                     <Typography color="#ffffff">Sign up</Typography>
                   </MenuItem>
                 </>
               ) : (
-                <MenuItem onClick={handleLogout}>
+                <MenuItem onClick={() => {
+                  handleLogout();
+                  setOpen(false);
+                }}>
                   <Typography color="error">Logout</Typography>
                 </MenuItem>
               )}
