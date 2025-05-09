@@ -4,13 +4,13 @@ Anonymous Messaging with Role-Based Control and Accountability
 
 ## Overview
 
-WhisperChain+ is a secure messaging system that allows users to send anonymous messages in designated rounds while maintaining accountability through role-based access control.
+WhisperChain+ is a secure messaging system that allows users to send anonymous messages while maintaining accountability through role-based access control.
 
 ## Features
 
 - **Role-Based Access Control**: Different user roles (Sender, Recipient, Moderator, Admin) with specific permissions
-- **Anonymous Messaging**: Users can send encrypted messages anonymously during open rounds
-- **One-Time Use Tokens**: Each user gets a unique token per round that can only be used once
+- **Anonymous Messaging**: Users can send encrypted messages anonymously
+- **One-Time Use Tokens**: Each user gets a unique token that can only be used once
 - **End-to-End Encryption**: Messages are encrypted with the recipient's public key
 - **Audit Logs**: All system actions are logged for accountability while preserving anonymity
 - **Moderation Tools**: Moderators can review flagged messages and freeze abusive tokens
@@ -29,8 +29,6 @@ The system uses:
 - `POST /whisperchain/admin/setup`: Create the initial admin account
 - `POST /whisperchain/admin/login`: Admin login
 - `POST /whisperchain/admin/assignRole`: Assign a role to a user
-- `POST /whisperchain/admin/startRound`: Start a new messaging round
-- `POST /whisperchain/admin/endRound`: End the current messaging round
 - `GET /whisperchain/admin/pendingUsers`: Get users waiting for role assignment
 
 ### Auth Routes

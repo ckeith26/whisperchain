@@ -36,8 +36,6 @@ const SystemSettings = () => {
   const [settings, setSettings] = useState({
     minMessageLength: 20,
     maxMessageLength: 500,
-    roundDuration: 7, // days
-    autoPublishRounds: true,
     requireEmailVerification: true,
     autoApproveRegistrations: false
   });
@@ -59,8 +57,6 @@ const SystemSettings = () => {
         setSettings({
           minMessageLength: 20,
           maxMessageLength: 500,
-          roundDuration: 7,
-          autoPublishRounds: true,
           requireEmailVerification: true,
           autoApproveRegistrations: false
         });
@@ -169,7 +165,7 @@ const SystemSettings = () => {
       case 'rotatePolicy':
         return {
           title: 'Rotate System Policy',
-          message: 'This will update the system policy and may affect message delivery and round processing. Are you sure you want to continue?',
+          message: 'This will update the system policy and may affect message delivery processing. Are you sure you want to continue?',
           action: rotatePolicy
         };
       default:
@@ -272,52 +268,6 @@ const SystemSettings = () => {
             </Box>
             
             <Divider sx={{ my: 3, bgcolor: 'rgba(255,255,255,0.1)' }} />
-            
-            <Box sx={{ mb: 4 }}>
-              <Typography variant="h6" gutterBottom>
-                Round Configuration
-              </Typography>
-              
-              <Stack spacing={3} sx={{ mt: 2 }}>
-                <FormControl fullWidth sx={{ mb: 2 }}>
-                  <InputLabel sx={{ color: 'rgba(255,255,255,0.7)' }}>Round Duration</InputLabel>
-                  <Select
-                    name="roundDuration"
-                    value={settings.roundDuration}
-                    onChange={handleSettingChange}
-                    label="Round Duration"
-                    sx={{
-                      color: 'white',
-                      '& .MuiOutlinedInput-notchedOutline': {
-                        borderColor: 'rgba(255,255,255,0.2)',
-                      },
-                      '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: 'rgba(255,255,255,0.3)',
-                      },
-                    }}
-                  >
-                    <MenuItem value={1}>1 day</MenuItem>
-                    <MenuItem value={3}>3 days</MenuItem>
-                    <MenuItem value={7}>1 week</MenuItem>
-                    <MenuItem value={14}>2 weeks</MenuItem>
-                    <MenuItem value={30}>1 month</MenuItem>
-                  </Select>
-                </FormControl>
-                
-                <FormControlLabel
-                  control={
-                    <Switch 
-                      checked={settings.autoPublishRounds}
-                      onChange={handleSettingChange}
-                      name="autoPublishRounds"
-                      color="primary"
-                    />
-                  }
-                  label="Auto-publish completed rounds"
-                  sx={{ color: 'white' }}
-                />
-              </Stack>
-            </Box>
             
             <Divider sx={{ my: 3, bgcolor: 'rgba(255,255,255,0.1)' }} />
             

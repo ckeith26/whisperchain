@@ -26,7 +26,6 @@ export const getFlaggedMessages = async (req, res) => {
         content: message.content, // Encrypted content
         senderToken: message.senderToken,
         recipientUid: message.recipientUid,
-        round: message.round,
         sentAt: message.sentAt,
         flaggedAt: message.isFlagged.timestamp
       }))
@@ -95,11 +94,10 @@ export const getAuditLogs = async (req, res) => {
     }
 
     // Parse query parameters for filtering
-    const { actionType, round, startDate, endDate, limit = 100 } = req.query;
+    const { actionType, startDate, endDate, limit = 100 } = req.query;
     
     const query = {};
     if (actionType) query.actionType = actionType;
-    if (round) query.round = parseInt(round, 10);
     
     if (startDate || endDate) {
       query.timestamp = {};

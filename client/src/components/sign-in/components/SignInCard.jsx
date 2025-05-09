@@ -34,7 +34,11 @@ export default function SignInCard() {
     try {
       const result = await login({ email, password });
       if (result.success) {
-        navigate('/messages');
+        if (result.isAdmin) {
+          navigate('/admin');
+        } else {
+          navigate('/messages');
+        }
       } else {
         setError(result.message || 'Login failed. Please try again.');
       }

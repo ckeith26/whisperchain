@@ -61,6 +61,23 @@ const Hero = ({
     }
   };
 
+  const roleTabs = {
+    sender: [
+      { label: 'Send Message', path: '/messages/send' }
+    ],
+    receiver: [
+      { label: 'Inbox', path: '/messages' }
+    ],
+    moderator: [
+      { label: 'Flagged', path: '/moderator/flaggedMessages' },
+      { label: 'Freeze Tokens', path: '/moderator/freezeToken' },
+      { label: 'Audit Logs', path: '/moderator/auditLogs' }
+    ],
+    admin: [
+      { label: 'Users', path: '/admin/users' }
+    ]
+  };
+  
   return (
     <Box
       id="hero"
@@ -124,7 +141,7 @@ const Hero = ({
               options={{
                 strings: [
                   "Secure, anonymous messaging with role-based access control",
-                  "Send encrypted messages during controlled rounds",
+                  "Send encrypted messages",
                   "Maintain anonymity with end-to-end encryption",
                   "Sender, Recipient, Moderator, Admin role support",
                   "Search for recipients securely and privately",
@@ -299,12 +316,6 @@ const Features = () => {
             >
               <Box display="flex" flexDirection="column" alignItems="center" textAlign="center">
                 <MessageIcon sx={{ fontSize: 60, mb: 2, color: '#4caf50' }} />
-                <Typography variant="h5" gutterBottom fontWeight="bold" color="#ffffff">
-                  Round-Based Control
-                </Typography>
-                <Typography color="rgba(255,255,255,0.7)">
-                  Messages sent in controlled rounds with timing constraints for maximum security.
-                </Typography>
               </Box>
             </Paper>
           </Grid>

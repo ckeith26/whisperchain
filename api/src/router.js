@@ -5,11 +5,11 @@ import * as AdminController from './controllers/admin_controller';
 import * as AuthController from './controllers/auth_controller';
 import * as MessageController from './controllers/message_controller';
 import * as ModeratorController from './controllers/moderator_controller';
-import { 
-  requireAuth, 
-  requireAdmin, 
-  requireModerator, 
-  requireRole 
+import {
+  requireAuth,
+  requireAdmin,
+  requireModerator,
+  requireRole,
 } from './services/auth_service';
 import { ROLES } from './models/user_model';
 
@@ -27,19 +27,14 @@ router.route('/')
 router.route('/admin/setup')
   .post(AdminController.setupAdmin);
 
-// Admin login - deprecated, use normal /auth/login
-// Keeping for backward compatibility
-router.route('/admin/login')
-  .post(AdminController.adminLogin);
+router.route('/admin/users')
+  .get(requireAuth, requireAdmin, AdminController.getUsers);
+
+router.route('/admin/toggleSuspension')
+  .post(requireAuth, requireAdmin, AdminController.toggleUserSuspension);
 
 router.route('/admin/assignRole')
   .post(requireAuth, requireAdmin, AdminController.assignRole);
-
-router.route('/admin/startRound')
-  .post(requireAuth, requireAdmin, AdminController.startRound);
-
-router.route('/admin/endRound')
-  .post(requireAuth, requireAdmin, AdminController.endRound);
 
 router.route('/admin/pendingUsers')
   .get(requireAuth, requireAdmin, AdminController.getPendingUsers);

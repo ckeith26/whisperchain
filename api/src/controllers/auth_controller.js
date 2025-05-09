@@ -3,7 +3,6 @@ import dotenv from 'dotenv';
 import { nanoid } from 'nanoid';
 import bcrypt from 'bcryptjs';
 import UserModel, { ROLES } from '../models/user_model';
-import NameToIdModel from '../models/name_to_id_model';
 import AuditLogModel, { ACTION_TYPES } from '../models/audit_log_model';
 
 dotenv.config();
@@ -20,14 +19,14 @@ export const register = async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    if (password.length < 8) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters long' });
-    }
-
     // Check if email is already taken
     const existingUser = await UserModel.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ error: 'This email is already registered' });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters long' });
     }
 
     // Generate a unique user ID
@@ -52,14 +51,6 @@ export const register = async (req, res) => {
 
     await user.save();
 
-    // Create name to ID mapping
-    const nameToId = new NameToIdModel({
-      name: userName,
-      uid,
-    });
-
-    await nameToId.save();
-
     // Log user creation
     await new AuditLogModel({
       actionType: ACTION_TYPES.USER_CREATED,
@@ -67,9 +58,25 @@ export const register = async (req, res) => {
       metadata: { name: userName, email },
     }).save();
 
+    // Create token
+    const timestamp = Math.floor(Date.now() / 1000);
+    const token = jwt.encode({
+      sub: uid,
+      iat: timestamp,
+      exp: timestamp + (60 * 60 * 24 * 7), // 7 days
+      role: user.role
+    }, JWT_SECRET);
+
     return res.status(201).json({
       success: true,
-      message: 'Registration successful. Please wait for admin approval to assign your role.',
+      message: 'Registration successful',
+      token,
+      user: {
+        uid: user.uid,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      }
     });
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -84,7 +91,7 @@ export const login = async (req, res) => {
     // Find user by email and explicitly select the password field
     const user = await UserModel.findOne({ email }).select('+password');
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'User does not exist' });
     }
 
     // Check if user is suspended
@@ -93,17 +100,19 @@ export const login = async (req, res) => {
     }
 
     // Compare passwords
+    console.log('Comparing passwords:', password, user.password);
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     // Create token
-    const timestamp = new Date().getTime();
-    const token = jwt.encode({ 
-      sub: user.uid, 
+    const timestamp = Math.floor(Date.now() / 1000);
+    const token = jwt.encode({
+      sub: user.uid,
       iat: timestamp,
-      role: user.role,
+      exp: timestamp + (60 * 60 * 24 * 7), // 7 days
+      role: user.role
     }, JWT_SECRET);
 
     // Return user info and token
@@ -160,21 +169,21 @@ export const searchUsers = async (req, res) => {
     if (!query) {
       return res.status(400).json({ error: 'Search query is required' });
     }
-
-    // Find users whose names match the query
-    const nameToIds = await NameToIdModel.find({
-      name: { $regex: query, $options: 'i' },
-    });
     
-    // Also search by email
+    // Search by email
     const usersByEmail = await UserModel.find({
       email: { $regex: query, $options: 'i' },
     });
     
+    // Search by name
+    const usersByName = await UserModel.find({
+      name: { $regex: query, $options: 'i' },
+    });
+    
     // Combine results
     const emailUids = usersByEmail.map(user => user.uid);
-    const nameUids = nameToIds.map(nameId => nameId.uid);
-    
+    const nameUids = usersByName.map(user => user.uid);
+
     // Get unique UIDs
     const uniqueUids = [...new Set([...emailUids, ...nameUids])];
 

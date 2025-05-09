@@ -25,6 +25,10 @@ export const requireAuth = async (req, res, next) => {
     try {
       const decodedToken = jwt.decode(token, JWT_SECRET);
       
+      if (!decodedToken || !decodedToken.sub) {
+        return res.status(401).json({ error: 'Invalid token format' });
+      }
+      
       // For all users including admins, verify they exist in the users collection
       const user = await UserModel.findOne({ uid: decodedToken.sub });
       
@@ -47,10 +51,12 @@ export const requireAuth = async (req, res, next) => {
       next();
     } catch (jwtError) {
       console.error('JWT decode error:', jwtError.message);
+      console.error('JWT decode error details:', jwtError);
       return res.status(401).json({ error: 'Invalid or expired authentication token' });
     }
   } catch (error) {
     console.error('Auth error:', error.message);
+    console.error('Auth error details:', error);
     return res.status(401).json({ error: 'Invalid or expired authentication token' });
   }
 };
@@ -63,7 +69,7 @@ export const requireRole = (role) => (req, res, next) => {
 
   if (req.user.role !== role && req.user.role !== ROLES.ADMIN) {
     return res.status(403).json({
-      error: `Access denied. Required role: ${role}`
+      error: `Access denied. Required role: ${role}`,
     });
   }
 

@@ -34,16 +34,23 @@ const drawerWidth = 240;
 const AdminPanel = () => {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { authenticated, isAdmin, user, logout } = useStore(state => state.authSlice);
+  const { authenticated, isAdmin, isModerator, user, logout } = useStore(state => state.authSlice);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
   
-  // Redirect if not authenticated or not admin
+  // Set appropriate initial view based on user role
   useEffect(() => {
-    if (!authenticated || !isAdmin()) {
-      navigate('/admin/login');
+    if (authenticated && isModerator() && !isAdmin()) {
+      setActiveView('messages');
     }
-  }, [authenticated, isAdmin, navigate]);
+  }, [authenticated, isAdmin, isModerator]);
+  
+  // Redirect if not authenticated or not admin/moderator
+  useEffect(() => {
+    if (!authenticated || (!isAdmin() && !isModerator())) {
+      navigate('/');
+    }
+  }, [authenticated, isAdmin, isModerator, navigate]);
   
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -64,55 +71,61 @@ const AdminPanel = () => {
       <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
         <SecurityIcon fontSize="large" />
         <Typography variant="h6" noWrap component="div" fontWeight="bold">
-          Admin Panel
+          {isAdmin() ? "Admin Panel" : "Moderator Panel"}
         </Typography>
       </Box>
       <Divider sx={{ bgcolor: 'rgba(255,255,255,0.1)' }} />
       <List>
-        <ListItem 
-          button 
-          selected={activeView === 'dashboard'} 
-          onClick={() => handleChangeView('dashboard')}
-          sx={{ '&.Mui-selected': { bgcolor: 'rgba(255,255,255,0.1)' } }}
-        >
-          <ListItemIcon sx={{ color: 'white' }}>
-            <DashboardIcon />
-          </ListItemIcon>
-          <ListItemText primary="Dashboard" />
-        </ListItem>
-        <ListItem 
-          button 
-          selected={activeView === 'users'} 
-          onClick={() => handleChangeView('users')}
-          sx={{ '&.Mui-selected': { bgcolor: 'rgba(255,255,255,0.1)' } }}
-        >
-          <ListItemIcon sx={{ color: 'white' }}>
-            <PeopleIcon />
-          </ListItemIcon>
-          <ListItemText primary="Users" />
-        </ListItem>
-        <ListItem 
-          button 
-          selected={activeView === 'messages'} 
-          onClick={() => handleChangeView('messages')}
-          sx={{ '&.Mui-selected': { bgcolor: 'rgba(255,255,255,0.1)' } }}
-        >
-          <ListItemIcon sx={{ color: 'white' }}>
-            <MessageIcon />
-          </ListItemIcon>
-          <ListItemText primary="Messages" />
-        </ListItem>
-        <ListItem 
-          button 
-          selected={activeView === 'settings'} 
-          onClick={() => handleChangeView('settings')}
-          sx={{ '&.Mui-selected': { bgcolor: 'rgba(255,255,255,0.1)' } }}
-        >
-          <ListItemIcon sx={{ color: 'white' }}>
-            <SettingsIcon />
-          </ListItemIcon>
-          <ListItemText primary="Settings" />
-        </ListItem>
+        {isAdmin() && (
+          <>
+            <ListItem 
+              button 
+              selected={activeView === 'dashboard'} 
+              onClick={() => handleChangeView('dashboard')}
+              sx={{ '&.Mui-selected': { bgcolor: 'rgba(255,255,255,0.1)' } }}
+            >
+              <ListItemIcon sx={{ color: 'white' }}>
+                <DashboardIcon />
+              </ListItemIcon>
+              <ListItemText primary="Dashboard" />
+            </ListItem>
+            <ListItem 
+              button 
+              selected={activeView === 'users'} 
+              onClick={() => handleChangeView('users')}
+              sx={{ '&.Mui-selected': { bgcolor: 'rgba(255,255,255,0.1)' } }}
+            >
+              <ListItemIcon sx={{ color: 'white' }}>
+                <PeopleIcon />
+              </ListItemIcon>
+              <ListItemText primary="Users" />
+            </ListItem>
+            <ListItem 
+              button 
+              selected={activeView === 'settings'} 
+              onClick={() => handleChangeView('settings')}
+              sx={{ '&.Mui-selected': { bgcolor: 'rgba(255,255,255,0.1)' } }}
+            >
+              <ListItemIcon sx={{ color: 'white' }}>
+                <SettingsIcon />
+              </ListItemIcon>
+              <ListItemText primary="Settings" />
+            </ListItem>
+          </>
+        )}
+        {isModerator() && (
+          <ListItem 
+            button 
+            selected={activeView === 'messages'} 
+            onClick={() => handleChangeView('messages')}
+            sx={{ '&.Mui-selected': { bgcolor: 'rgba(255,255,255,0.1)' } }}
+          >
+            <ListItemIcon sx={{ color: 'white' }}>
+              <MessageIcon />
+            </ListItemIcon>
+            <ListItemText primary="Messages" />
+          </ListItem>
+        )}
       </List>
       <Divider sx={{ bgcolor: 'rgba(255,255,255,0.1)', mt: 'auto' }} />
       <List>
@@ -126,7 +139,7 @@ const AdminPanel = () => {
     </Box>
   );
   
-  if (!authenticated || !isAdmin()) {
+  if (!authenticated || (!isAdmin() && !isModerator())) {
     return null; // Will redirect via useEffect
   }
 
@@ -145,11 +158,11 @@ const AdminPanel = () => {
             borderRadius: 2,
             border: '1px solid rgba(255,255,255,0.1)',
           }}>
-            <Typography variant="h5" gutterBottom>
+            <Typography variant="h5" gutterBottom sx={{ color: 'white' }}>
               Message Management
             </Typography>
-            <Typography variant="body1">
-              This feature will allow monitoring and managing message rounds.
+            <Typography variant="body1" sx={{ color: 'white' }}>
+              This feature will allow monitoring.
             </Typography>
           </Paper>
         );
@@ -162,10 +175,10 @@ const AdminPanel = () => {
             borderRadius: 2,
             border: '1px solid rgba(255,255,255,0.1)',
           }}>
-            <Typography variant="h4" gutterBottom>
+            <Typography variant="h4" gutterBottom sx={{ color: 'white' }}>
               Dashboard
             </Typography>
-            <Typography variant="body1" paragraph>
+            <Typography variant="body1" paragraph sx={{ color: 'white' }}>
               Welcome to the WhisperChain+ Admin Panel. Here you can manage users, view messages, and configure system settings.
             </Typography>
             
@@ -181,11 +194,11 @@ const AdminPanel = () => {
                 borderRadius: 2,
                 border: '1px solid rgba(25, 118, 210, 0.2)',
               }}>
-                <Typography variant="h6" gutterBottom>
+                <Typography variant="h6" gutterBottom sx={{ color: 'white' }}>
                   Users
                 </Typography>
-                <Typography variant="h4">0</Typography>
-                <Typography variant="body2" color="textSecondary">
+                <Typography variant="h4" sx={{ color: 'white' }}>0</Typography>
+                <Typography variant="body2" sx={{ color: 'white' }}>
                   Total registered users
                 </Typography>
               </Paper>
@@ -196,11 +209,11 @@ const AdminPanel = () => {
                 borderRadius: 2,
                 border: '1px solid rgba(76, 175, 80, 0.2)',
               }}>
-                <Typography variant="h6" gutterBottom>
+                <Typography variant="h6" gutterBottom sx={{ color: 'white' }}>
                   Messages
                 </Typography>
-                <Typography variant="h4">0</Typography>
-                <Typography variant="body2" color="textSecondary">
+                <Typography variant="h4" sx={{ color: 'white' }}>0</Typography>
+                <Typography variant="body2" sx={{ color: 'white' }}>
                   Total secure messages
                 </Typography>
               </Paper>
@@ -211,11 +224,11 @@ const AdminPanel = () => {
                 borderRadius: 2,
                 border: '1px solid rgba(211, 47, 47, 0.2)',
               }}>
-                <Typography variant="h6" gutterBottom>
+                <Typography variant="h6" gutterBottom sx={{ color: 'white' }}>
                   Flagged Content
                 </Typography>
-                <Typography variant="h4">0</Typography>
-                <Typography variant="body2" color="textSecondary">
+                <Typography variant="h4" sx={{ color: 'white' }}>0</Typography>
+                <Typography variant="body2" sx={{ color: 'white' }}>
                   Messages requiring review
                 </Typography>
               </Paper>
@@ -247,7 +260,7 @@ const AdminPanel = () => {
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            WhisperChain+ Administration
+            WhisperChain+ {isAdmin() ? "Administration" : "Moderation"}
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Typography variant="body2">{user?.name || user?.email || ''}</Typography>

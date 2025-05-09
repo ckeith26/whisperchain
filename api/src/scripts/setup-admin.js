@@ -14,4 +14,4 @@ async function runSetup() {
   }
 }
 
-runSetup(); 
+runSetup();

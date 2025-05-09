@@ -8,7 +8,6 @@ import NotFound from './components/shared-components/NotFound';
 import Home from './components/home/Home';
 import Chat from './components/chat/Chat';
 import Profile from './components/profile/Profile';
-import AdminLogin from './components/admin/AdminLogin';
 import AdminPanel from './components/admin/AdminPanel';
 import ModeratorPanel from './components/moderator/ModeratorPanel';
 import ConditionalRedirect from './components/shared-components/ConditionalRedirect';
@@ -60,9 +59,12 @@ const App = () => {
       <BrowserRouter>
         <ScrollToTop />
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={
+            authenticated && isAdmin() ? <Navigate to="/admin" replace /> : <Home />
+          } />
           
           <Route path="/messages" element={
+            authenticated && isAdmin() ? <Navigate to="/admin" replace /> : 
             authenticated ? <Chat /> : <Navigate to="/?action=signin" replace />
           } />
           
@@ -72,11 +74,11 @@ const App = () => {
           
           {/* Admin routes */}
           <Route path="/admin/login" element={
-            authenticated && isAdmin() ? <Navigate to="/admin" replace /> : <AdminLogin />
+            <Navigate to="/?action=signin" replace />
           } />
           
           <Route path="/admin" element={
-            authenticated && isAdmin() ? <AdminPanel /> : <Navigate to="/admin/login" replace />
+            authenticated && isAdmin() ? <AdminPanel /> : <Navigate to="/?action=signin" replace />
           } />
           
           {/* Moderator routes */}

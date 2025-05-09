@@ -8,7 +8,6 @@ const userSlice = (set, get) => ({
   users: [],
   messageLoading: false,
   userLoading: false,
-  currentRound: null,
   
   // Get messages for user
   getMessages: async () => {
@@ -114,21 +113,6 @@ const userSlice = (set, get) => ({
     }
   },
   
-  // Get current round status
-  getCurrentRound: async () => {
-    try {
-      const response = await axios.get(`${API_URL}/admin/roundStatus`);
-      
-      set(state => {
-        state.userSlice.currentRound = response.data;
-      });
-      
-      return { success: true, round: response.data };
-    } catch (error) {
-      console.error('Error fetching current round:', error);
-      return { success: false, message: 'Failed to fetch round status' };
-    }
-  }
 });
 
 export default userSlice; 

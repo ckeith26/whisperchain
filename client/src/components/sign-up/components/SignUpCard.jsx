@@ -74,8 +74,16 @@ export default function SignUpCard() {
     setLoading(true);
 
     try {
-      const { confirmPassword, ...registrationData } = formData;
-      const result = await register(registrationData);
+      const { confirmPassword, preferredRole, ...registrationData } = formData;
+      // Map the form fields to what the backend expects
+      const userData = {
+        name: formData.username, // Map username to name
+        email: formData.email,
+        password: formData.password,
+        role: formData.preferredRole // Map preferredRole to role
+      };
+      
+      const result = await register(userData);
       if (result.success) {
         navigate('/messages');
       } else {

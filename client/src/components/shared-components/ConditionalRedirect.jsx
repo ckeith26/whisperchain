@@ -1,15 +1,17 @@
 import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import useStore from '../../store';
 
 const ConditionalRedirect = ({
   children,
   redirectTo = '/',
   redirectIfAuthenticated = true,
-  checkRoleFn = null
+  checkRoleFn = null,
+  isAdminPage = false
 }) => {
   const navigate = useNavigate();
-  const { authenticated, initialized } = useStore(state => state.authSlice);
+  const location = useLocation();
+  const { authenticated, initialized, isAdmin } = useStore(state => state.authSlice);
 
   useEffect(() => {
     if (initialized) {
@@ -23,6 +25,25 @@ const ConditionalRedirect = ({
         return;
       }
       
+      // Handle admin-specific routing
+      if (authenticated) {
+        const isUserAdmin = isAdmin();
+        const isCurrentPathAdmin = location.pathname.startsWith('/admin');
+        const isRestrictedPath = ['/', '/messages'].includes(location.pathname);
+
+        // If user is admin and trying to access restricted paths, redirect to admin
+        if (isUserAdmin && isRestrictedPath) {
+          navigate('/admin');
+          return;
+        }
+
+        // If user is not admin but trying to access admin page, redirect to home
+        if (!isUserAdmin && isCurrentPathAdmin) {
+          navigate('/');
+          return;
+        }
+      }
+      
       // Then check role if a role check function is provided and the user is authenticated
       if (checkRoleFn && authenticated) {
         // If role check returns false, redirect
@@ -31,7 +52,7 @@ const ConditionalRedirect = ({
         }
       }
     }
-  }, [authenticated, initialized, navigate, redirectIfAuthenticated, redirectTo, checkRoleFn]);
+  }, [authenticated, initialized, navigate, redirectIfAuthenticated, redirectTo, checkRoleFn, isAdmin, location.pathname]);
 
   // If not initialized, don't render anything
   if (!initialized) return null;
@@ -44,8 +65,16 @@ const ConditionalRedirect = ({
   // Check if we should render based on role (if role check provided)
   const roleCheckPassed = !checkRoleFn || !authenticated || checkRoleFn();
   
-  // Render children only if both checks pass
-  if (authCheckPassed && roleCheckPassed) {
+  // Check admin-specific conditions
+  const isUserAdmin = isAdmin();
+  const isCurrentPathAdmin = location.pathname.startsWith('/admin');
+  const isRestrictedPath = ['/', '/messages'].includes(location.pathname);
+  const adminCheckPassed = 
+    (isUserAdmin && (isCurrentPathAdmin || !isRestrictedPath)) || 
+    (!isUserAdmin && !isCurrentPathAdmin);
+  
+  // Render children only if all checks pass
+  if (authCheckPassed && roleCheckPassed && adminCheckPassed) {
     return <>{children}</>;
   }
 

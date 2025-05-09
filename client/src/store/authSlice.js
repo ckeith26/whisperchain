@@ -48,12 +48,13 @@ const authSlice = (set, get) => ({
       }
 
       // Check if this is an admin token
-      const isAdminToken = decoded.sub === 'admin';
+      const isAdminToken = decoded.role === 'admin';
 
       if (isAdminToken) {
         // Admin is authenticated, no need to fetch profile
         set(state => {
           state.authSlice.user = { 
+            uid: decoded.sub,
             role: 'admin', 
             username: 'Administrator' 
           };
@@ -123,36 +124,13 @@ const authSlice = (set, get) => ({
         state.authSlice.authenticated = true;
       });
       
-      return { success: true };
+      // Check if the user is an admin and include this information in the response
+      const isUserAdmin = user.role === 'admin';
+      
+      return { success: true, isAdmin: isUserAdmin };
     } catch (error) {
       console.error('Login error:', error);
       const message = error.response?.data?.error || 'Login failed. Please try again.';
-      toast.error(message);
-      return { success: false, message };
-    }
-  },
-
-  // Admin login
-  adminLogin: async (credentials) => {
-    try {
-      const response = await axios.post(`${API_URL}/admin/login`, credentials);
-      const { token } = response.data;
-      
-      localStorage.setItem('token', token);
-      
-      set(state => {
-        state.authSlice.token = token;
-        state.authSlice.user = { 
-          role: 'admin', 
-          username: credentials.username 
-        };
-        state.authSlice.authenticated = true;
-      });
-      
-      return { success: true };
-    } catch (error) {
-      console.error('Admin login error:', error);
-      const message = error.response?.data?.error || 'Admin login failed. Please try again.';
       toast.error(message);
       return { success: false, message };
     }

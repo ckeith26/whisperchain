@@ -39,7 +39,6 @@ const Chat = () => {
     searchUsers,
     users,
     userLoading,
-    getCurrentRound
   } = useStore(state => state.userSlice);
   
   const [newMessage, setNewMessage] = useState('');
@@ -47,7 +46,6 @@ const Chat = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
-  const [currentRound, setCurrentRound] = useState(null);
   const [viewMode, setViewMode] = useState('received'); // received or send
 
   useEffect(() => {
@@ -58,14 +56,10 @@ const Chat = () => {
 
     const loadData = async () => {
       await getMessages();
-      const roundResponse = await getCurrentRound();
-      if (roundResponse.success) {
-        setCurrentRound(roundResponse.round);
-      }
     };
 
     loadData();
-  }, [user, getMessages, getCurrentRound, navigate]);
+  }, [user, getMessages, navigate]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -81,10 +75,7 @@ const Chat = () => {
       return;
     }
 
-    if (!currentRound || !currentRound.active) {
-      setError('Cannot send messages outside of an active round');
-      return;
-    }
+
 
     setSending(true);
     try {
@@ -146,33 +137,6 @@ const Chat = () => {
     <>
       <AppAppBar />
       <Container maxWidth="lg" sx={{ mt: 12, mb: 4 }}>
-        <Grid container spacing={3}>
-          {/* Round Status */}
-          <Grid item xs={12}>
-            <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Typography variant="h6">
-                  Round Status: {currentRound?.active ? (
-                    <Chip label="ACTIVE" color="success" size="small" />
-                  ) : (
-                    <Chip label="INACTIVE" color="error" size="small" />
-                  )}
-                </Typography>
-                {currentRound && (
-                  <Typography variant="body2" color="text.secondary">
-                    Round #{currentRound.number} {currentRound.active && `- Started at ${formatDate(currentRound.startTime)}`}
-                  </Typography>
-                )}
-                <Button 
-                  variant="outlined" 
-                  color="primary"
-                  onClick={handleToggleView}
-                >
-                  {viewMode === 'received' ? 'Switch to Send Mode' : 'Switch to Received Messages'}
-                </Button>
-              </Box>
-            </Paper>
-          </Grid>
 
           {viewMode === 'received' ? (
             // Received Messages View
@@ -243,14 +207,7 @@ const Chat = () => {
                                       icon={<FlagIcon fontSize="small" />}
                                     />
                                   )}
-                                  <Typography
-                                    component="span"
-                                    variant="body2"
-                                    color="text.secondary"
-                                    sx={{ ml: 1 }}
-                                  >
-                                    Round #{message.round || '?'}
-                                  </Typography>
+                                  
                                 </Box>
                               </>
                             }
@@ -271,11 +228,7 @@ const Chat = () => {
                   Send Anonymous Message
                 </Typography>
 
-                {!currentRound?.active && (
-                  <Alert severity="warning" sx={{ mb: 3 }}>
-                    No active round. You can only send messages during an active round.
-                  </Alert>
-                )}
+                
 
                 {error && (
                   <Alert severity="error" sx={{ mb: 3 }}>
@@ -340,7 +293,6 @@ const Chat = () => {
                         value={recipient}
                         label="Recipient"
                         onChange={(e) => setRecipient(e.target.value)}
-                        disabled={sending || !currentRound?.active}
                       >
                         <MenuItem value="">
                           <em>Select a recipient</em>
@@ -360,7 +312,6 @@ const Chat = () => {
                       placeholder="Type your anonymous message here..."
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
-                      disabled={sending || !currentRound?.active}
                       sx={{ mb: 2 }}
                     />
 
@@ -369,7 +320,7 @@ const Chat = () => {
                       color="primary"
                       endIcon={sending ? <CircularProgress size={20} /> : <SendIcon />}
                       onClick={handleSendMessage}
-                      disabled={sending || !newMessage || !recipient || !currentRound?.active}
+                      disabled={sending || !newMessage || !recipient }
                       fullWidth
                       sx={{ py: 1.5 }}
                     >
@@ -380,7 +331,7 @@ const Chat = () => {
               </Paper>
             </Grid>
           )}
-        </Grid>
+    
       </Container>
     </>
   );

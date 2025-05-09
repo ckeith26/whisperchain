@@ -2,7 +2,6 @@ import readline from 'readline';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import UserModel, { ROLES } from '../models/user_model';
-import NameToIdModel from '../models/name_to_id_model';
 import { nanoid } from 'nanoid';
 
 dotenv.config();
@@ -93,14 +92,6 @@ const checkAndSetupAdmin = async () => {
     });
 
     await admin.save();
-
-    // Create name to ID mapping for admin
-    const nameToId = new NameToIdModel({
-      name,
-      uid,
-    });
-
-    await nameToId.save();
 
     console.log('Admin account created successfully!');
     console.log(`Email: ${email}`);

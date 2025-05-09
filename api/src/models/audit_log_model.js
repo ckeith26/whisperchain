@@ -8,8 +8,6 @@ const ACTION_TYPES = {
   MESSAGE_READ: 'message_read',
   MESSAGE_FLAGGED: 'message_flagged',
   TOKEN_FROZEN: 'token_frozen',
-  ROUND_STARTED: 'round_started',
-  ROUND_ENDED: 'round_ended'
 };
 
 // Audit Log schema for logging all system actions
@@ -19,8 +17,6 @@ const AuditLogSchema = new Schema({
   role: { type: String },
   tokenId: { type: String, ref: 'AuthToken' },
   targetId: { type: String }, // User ID, Message ID, etc.
-  round: { type: Number },
-  metadata: { type: Schema.Types.Mixed } // Additional data specific to action
 }, {
   toObject: { virtuals: true },
   toJSON: { virtuals: true },
@@ -30,4 +26,4 @@ const AuditLogSchema = new Schema({
 const AuditLogModel = mongoose.model('AuditLog', AuditLogSchema);
 
 export { ACTION_TYPES };
-export default AuditLogModel; 
+export default AuditLogModel;

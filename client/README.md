@@ -6,7 +6,6 @@ Frontend for the WhisperChain+ secure anonymous messaging platform with role-bas
 
 - Secure, anonymous messaging
 - Role-based access control (Sender, Recipient, Moderator, Admin)
-- Round-based messaging system
 - Message flagging functionality
 - User profile management
 - Key pair generation for secure communication
@@ -73,7 +72,6 @@ The frontend communicates with the WhisperChain+ API at the URL specified in the
 - Message sending/receiving
 - User search
 - Key pair generation
-- Round status management
 
 ## Security Features
 

@@ -128,6 +128,11 @@ const AppAppBar = ({
         effectiveHandleCloseSignIn();
         setLoginEmail('');
         setLoginPassword('');
+        
+        // Redirect to admin page if user is an admin
+        if (response.isAdmin) {
+          navigate('/admin');
+        }
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -421,17 +426,11 @@ const AppAppBar = ({
                 <MenuItem onClick={() => { navigate('/messages'); handleCloseUserMenu(); }}>
                   <Typography>Messages</Typography>
                 </MenuItem>
-                <MenuItem
-                  onClick={() => navigateTo('/admin/login')}
-                  selected={location.pathname === '/admin/login'}
-                  sx={{ 
-                    '&.Mui-selected': {
-                      bgcolor: alpha('#ffffff', 0.1),
-                    }
-                  }}
-                >
-                  <Typography color="#ffffff">Admin Login</Typography>
-                </MenuItem>
+                {user?.role === 'admin' && (
+                  <MenuItem onClick={() => { navigate('/admin'); handleCloseUserMenu(); }}>
+                    <Typography>Admin Panel</Typography>
+                  </MenuItem>
+                )}
                 <Divider />
                 <MenuItem onClick={handleLogout}>
                   <Typography color="error">Logout</Typography>
@@ -494,17 +493,19 @@ const AppAppBar = ({
                 </MenuItem>
               ))}
 
-              <MenuItem
-                onClick={() => navigateTo('/admin/login')}
-                selected={location.pathname === '/admin/login'}
-                sx={{ 
-                  '&.Mui-selected': {
-                    bgcolor: alpha('#ffffff', 0.1),
-                  }
-                }}
-              >
-                <Typography color="#ffffff">Admin Login</Typography>
-              </MenuItem>
+              {authenticated && user?.role === 'admin' && (
+                <MenuItem
+                  onClick={() => navigateTo('/admin')}
+                  selected={location.pathname === '/admin'}
+                  sx={{ 
+                    '&.Mui-selected': {
+                      bgcolor: alpha('#ffffff', 0.1),
+                    }
+                  }}
+                >
+                  <Typography color="#ffffff">Admin Panel</Typography>
+                </MenuItem>
+              )}
 
               <Divider sx={{ my: 2, bgcolor: alpha('#ffffff', 0.2) }} />
 

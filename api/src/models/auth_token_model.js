@@ -4,7 +4,6 @@ import mongoose, { Schema } from 'mongoose';
 const AuthTokenSchema = new Schema({
   uid: { type: String, required: true, ref: 'User' },
   token: { type: String, required: true, unique: true },
-  round: { type: Number, required: true },
   issuedAt: { type: Date, default: Date.now },
   isUsed: { type: Boolean, default: false },
   isFrozen: {
