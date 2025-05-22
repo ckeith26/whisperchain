@@ -199,13 +199,12 @@ const userSlice = (set, get) => ({
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // Only include users with public keys and strip personal information
-      const availableKeys = (response.data.users || [])
-        .filter((user) => !!user.publicKey)
-        .map((user) => ({
+      // Map all users regardless of public key availability
+      const availableKeys = (response.data.users || []).map((user) => ({
           uid: user.uid,
-          publicKey: user.publicKey,
-          keyId: `Key-${user.uid.substring(0, 8)}`, // Create a friendly key identifier
+        publicKey: user.publicKey || 'No public key available',
+        keyId: user.email || `Key-${user.uid.substring(0, 8)}`,
+        email: user.email
         }));
 
       set((state) => {
@@ -324,13 +323,12 @@ const userSlice = (set, get) => ({
 
       console.log("Server response for users:", response.data);
 
-      // Only include users with public keys and strip personal information
-      const availableKeys = (response.data.users || [])
-        .filter((user) => !!user.publicKey)
-        .map((user) => ({
+      // Map all users regardless of public key availability
+      const availableKeys = (response.data.users || []).map((user) => ({
           uid: user.uid,
-          publicKey: user.publicKey,
-          keyId: `Key-${user.uid.substring(0, 8)}`,
+        publicKey: user.publicKey || 'No public key available',
+        keyId: user.email || `Key-${user.uid.substring(0, 8)}`,
+        email: user.email
         }));
 
       console.log("Processed available keys:", availableKeys);
@@ -375,17 +373,25 @@ const userSlice = (set, get) => ({
         headers: { Authorization: `Bearer ${token}` },
       });
 
+      // Map the additional users
+      const additionalUsers = (response.data.users || []).map((user) => ({
+        uid: user.uid,
+        publicKey: user.publicKey || 'No public key available',
+        keyId: user.email || `Key-${user.uid.substring(0, 8)}`,
+        email: user.email
+      }));
+
       set((state) => {
         state.userSlice.users = [
           ...state.userSlice.users,
-          ...response.data.users,
+          ...additionalUsers
         ];
         state.userSlice.userLoading = false;
         state.userSlice.userPage = nextPage;
         state.userSlice.hasMoreUsers = response.data.hasMore || false;
       });
 
-      return { success: true, loadedMore: response.data.users.length > 0 };
+      return { success: true, loadedMore: additionalUsers.length > 0 };
     } catch (error) {
       console.error("Error loading more users:", error);
       set((state) => {

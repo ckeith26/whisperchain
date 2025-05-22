@@ -57,6 +57,11 @@ export const assignRole = async (req, res) => {
   try {
     const { userId, role } = req.body;
 
+    // Prevent assigning admin role
+    if (role === ROLES.ADMIN) {
+      return res.status(403).json({ error: 'Admin role cannot be assigned for security reasons' });
+    }
+
     if (!Object.values(ROLES).includes(role)) {
       return res.status(400).json({ error: 'Invalid role' });
     }
@@ -114,6 +119,13 @@ export const toggleUserSuspension = async (req, res) => {
   try {
     const { userId } = req.body;
 
+    // Prevent user suspension for security reasons
+    return res.status(403).json({ 
+      error: 'User suspension has been disabled for security reasons',
+      success: false
+    });
+
+    /* Original code commented out
     const user = await UserModel.findOne({ uid: userId });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -138,6 +150,7 @@ export const toggleUserSuspension = async (req, res) => {
       message: `User ${user.isSuspended ? 'suspended' : 'unsuspended'} successfully`,
       isSuspended: user.isSuspended,
     });
+    */
   } catch (error) {
     console.error('Error toggling user suspension:', error.message);
     return res.status(500).json({ error: error.message });

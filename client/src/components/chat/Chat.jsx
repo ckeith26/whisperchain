@@ -294,39 +294,50 @@ const Chat = ({ view }) => {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || !recipient || sending) return;
+    if (recipient === "" || newMessage === "") {
+      // Show error
+      setError("Please select a recipient and enter a message");
+      return;
+    }
+
+      setError("");
+    setSending(true);
 
     try {
-      setSending(true);
-      setError("");
-
-      // Find the selected recipient's data
+      // Find selected user and get their public key
       const selectedUser = users.find((u) => u.uid === recipient);
-      if (!selectedUser?.publicKey) {
-        throw new Error("Recipient does not have a public key set up");
+      
+      if (!selectedUser) {
+        setError("Selected user not found");
+        setSending(false);
+        return;
       }
 
-      // Encrypt the message using recipient's public key
+      if (selectedUser.publicKey === 'No public key available') {
+        setError("Selected user does not have a public key yet. They cannot receive encrypted messages.");
+        setSending(false);
+        return;
+      }
+
+      // Encrypt the message
       const encryptedContent = await encryptMessage(
         newMessage,
         selectedUser.publicKey
       );
 
       // Send the encrypted message
-      await sendMessage({
-        recipientUid: recipient,
-        encryptedMessage: encryptedContent,
+      const result = await sendMessage({
+        receiverUid: recipient,
+        content: encryptedContent,
       });
 
-      // Clear the form
+      if (result.success) {
       setNewMessage("");
       setRecipient("");
-      setError("");
-
-      // Refresh sent messages
-      await getSentMessages();
+      }
     } catch (err) {
-      setError(err.message || "Failed to send message");
+      console.error("Error sending message:", err);
+      setError("Failed to send message: " + err.message);
     } finally {
       setSending(false);
     }
@@ -371,7 +382,7 @@ const Chat = ({ view }) => {
         >
           <ListItemText
             primary={
-              <Typography sx={{ color: "white" }}>{user.keyId}</Typography>
+              <Typography sx={{ color: "white" }}>{user.email || user.keyId}</Typography>
             }
             secondary={
               <Typography
@@ -383,7 +394,9 @@ const Chat = ({ view }) => {
                   wordBreak: "break-all",
                 }}
               >
-                {user.publicKey.substring(0, 50)}...
+                {user.publicKey !== 'No public key available' 
+                  ? `${user.publicKey.substring(0, 50)}...`
+                  : "No public key available"}
               </Typography>
             }
           />
@@ -397,7 +410,7 @@ const Chat = ({ view }) => {
       {!userLoading && users.length === 0 && (
         <ListItem>
           <Typography sx={{ color: "rgba(255,255,255,0.7)" }}>
-            No public keys available
+            No users available
           </Typography>
         </ListItem>
       )}
