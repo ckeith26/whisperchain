@@ -327,8 +327,8 @@ const Chat = ({ view }) => {
 
       // Send the encrypted message
       const result = await sendMessage({
-        receiverUid: recipient,
-        content: encryptedContent,
+        recipientUid: recipient,
+        encryptedMessage: encryptedContent,
       });
 
       if (result.success) {
@@ -363,7 +363,7 @@ const Chat = ({ view }) => {
   };
 
   const renderUserList = () => (
-    <List ref={usersListRef} sx={{ maxHeight: 400, overflow: "auto" }}>
+    <List ref={usersListRef} sx={{ height: 'auto', maxHeight: 400 }}>
       {users.map((user) => (
         <ListItem
           key={user.uid}
@@ -394,8 +394,8 @@ const Chat = ({ view }) => {
                   wordBreak: "break-all",
                 }}
               >
-                {user.publicKey !== 'No public key available' 
-                  ? `${user.publicKey.substring(0, 50)}...`
+                {user.publicKey && user.publicKey !== 'No public key available' 
+                  ? `${user.publicKey.substring(0, 20)}...`
                   : "No public key available"}
               </Typography>
             }
@@ -1063,19 +1063,57 @@ const Chat = ({ view }) => {
                       Available Public Keys
                     </Typography>
 
-                    <Paper
-                      elevation={0}
-                      sx={{
-                        maxHeight: 400,
-                        overflow: "auto",
-                        bgcolor: "rgba(255,255,255,0.05)",
-                        border: "1px solid rgba(255,255,255,0.1)",
-                        borderRadius: 1,
-                        mb: 3,
-                      }}
-                    >
-                      {renderUserList()}
-                    </Paper>
+                    <Box sx={{ mb: 3 }}>
+                      <TextField
+                        fullWidth
+                        placeholder="Search users..."
+                        value={searchQuery}
+                        onChange={handleSearchChange}
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <SearchIcon sx={{ color: "rgba(255,255,255,0.5)" }} />
+                            </InputAdornment>
+                          ),
+                          endAdornment: searchQuery ? (
+                            <InputAdornment position="end">
+                              <IconButton 
+                                size="small" 
+                                onClick={clearSearch}
+                                sx={{ color: "rgba(255,255,255,0.5)" }}
+                              >
+                                <ClearIcon fontSize="small" />
+                              </IconButton>
+                            </InputAdornment>
+                          ) : null,
+                          sx: {
+                            color: "white",
+                            borderRadius: 1,
+                            bgcolor: "rgba(255,255,255,0.02)",
+                          }
+                        }}
+                        sx={{
+                          mb: 2,
+                          "& .MuiOutlinedInput-root": {
+                            borderColor: "rgba(255,255,255,0.1)",
+                            "&:hover fieldset": { borderColor: "rgba(255,255,255,0.2)" },
+                            "&.Mui-focused fieldset": { borderColor: "primary.main" },
+                          },
+                        }}
+                      />
+                      <Paper
+                        elevation={0}
+                        sx={{
+                          maxHeight: 400,
+                          overflow: "auto",
+                          bgcolor: "rgba(255,255,255,0.05)",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          borderRadius: 1,
+                        }}
+                      >
+                        {renderUserList()}
+                      </Paper>
+                    </Box>
                   </Grid>
 
                   <Grid item xs={12} md={7}>

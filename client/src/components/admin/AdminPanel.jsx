@@ -25,10 +25,8 @@ import MenuIcon from '@mui/icons-material/Menu';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import PeopleIcon from '@mui/icons-material/People';
 import MessageIcon from '@mui/icons-material/Message';
-import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import UserManagement from './views/UserManagement';
-import SystemSettings from './views/SystemSettings';
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -53,7 +51,7 @@ const AdminPanel = ({ view }) => {
   
   // Set initial view based on prop or user role
   useEffect(() => {
-    if (view && ['dashboard', 'users', 'settings', 'messages'].includes(view)) {
+    if (view && ['dashboard', 'users', 'messages'].includes(view)) {
       setActiveView(view);
     } else if (authenticated && isModerator() && !isAdmin()) {
       setActiveView('messages');
@@ -148,17 +146,7 @@ const AdminPanel = ({ view }) => {
               </ListItemIcon>
               <ListItemText primary="Users" />
             </ListItem>
-            <ListItem 
-              button 
-              selected={activeView === 'settings'} 
-              onClick={() => handleChangeView('settings')}
-              sx={{ '&.Mui-selected': { bgcolor: 'rgba(255,255,255,0.1)' } }}
-            >
-              <ListItemIcon sx={{ color: 'white' }}>
-                <SettingsIcon />
-              </ListItemIcon>
-              <ListItemText primary="Settings" />
-            </ListItem>
+           
           </>
         )}
         {isModerator() && (
@@ -196,8 +184,6 @@ const AdminPanel = ({ view }) => {
     switch (activeView) {
       case 'users':
         return <UserManagement />;
-      case 'settings':
-        return <SystemSettings />;
       case 'messages':
         return (
           <Paper sx={{ 
