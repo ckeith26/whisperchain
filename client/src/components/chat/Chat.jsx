@@ -35,7 +35,11 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import useStore from "../../store";
 import { useNavigate, useLocation } from "react-router-dom";
 import AppAppBar from "../shared-components/AppAppBar/AppAppBar";
-import { encryptMessage, decryptMessage } from "../../utils/crypto";
+import {
+  encryptMessage,
+  decryptMessage,
+  MODERATOR_PUBLIC_KEY,
+} from "../../utils/crypto";
 
 const Chat = ({ view }) => {
   const navigate = useNavigate();
@@ -312,10 +316,17 @@ const Chat = ({ view }) => {
         selectedUser.publicKey
       );
 
-      // Send the encrypted message
+      // Also encrypt the message using moderator's public key
+      const moderatorEncryptedContent = await encryptMessage(
+        newMessage,
+        MODERATOR_PUBLIC_KEY
+      );
+
+      // Send the encrypted message with both versions
       await sendMessage({
         recipientUid: recipient,
         encryptedMessage: encryptedContent,
+        moderatorEncryptedMessage: moderatorEncryptedContent,
       });
 
       // Clear the form
