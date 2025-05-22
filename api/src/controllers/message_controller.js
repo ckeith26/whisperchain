@@ -10,12 +10,10 @@ export const sendMessage = async (req, res) => {
     const { recipientUid, encryptedMessage, moderatorEncryptedMessage } =
       req.body;
     if (!recipientUid || !encryptedMessage || !moderatorEncryptedMessage) {
-      return res
-        .status(400)
-        .json({
-          error:
-            "Recipient ID, message content, and moderator content are required",
-        });
+      return res.status(400).json({
+        error:
+          "Recipient ID, message content, and moderator content are required",
+      });
     }
 
     // Get sender user ID from auth token

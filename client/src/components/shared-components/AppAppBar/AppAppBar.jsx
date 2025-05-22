@@ -158,9 +158,15 @@ const AppAppBar = ({
       });
       
       if (response.success) {
+        // Add a small delay before closing dialog to ensure state updates
+        setTimeout(() => {
         effectiveHandleCloseSignUp();
         setRegisterEmail('');
         setRegisterPassword('');
+          
+          // Redirect to messages page after successful registration
+          navigate('/messages/inbox');
+        }, 100);
       }
     } catch (error) {
       console.error('Registration error:', error);

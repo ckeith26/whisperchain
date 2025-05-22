@@ -153,6 +153,7 @@ const authSlice = (set, get) => ({
         state.authSlice.authenticated = true;
       });
 
+      toast.success("Registration successful!");
       return { success: true };
     } catch (error) {
       console.error("Registration error:", error);

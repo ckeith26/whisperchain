@@ -36,7 +36,7 @@ const checkAndSetupAdmin = async () => {
 
     // Check if admin already exists
     const existingAdmin = await UserModel.findOne({ role: ROLES.ADMIN });
-    
+
     if (existingAdmin) {
       console.log('Admin account already exists. Continuing startup...');
       if (rl.listenerCount('line')) {
@@ -46,16 +46,16 @@ const checkAndSetupAdmin = async () => {
     }
 
     console.log('No admin account found. Let\'s set up an admin account.');
-    
+
     // Ask for admin email
     const email = await question('Enter admin email: ');
-    
+
     // Ask for admin name
     const name = await question('Enter admin display name: ');
-    
+
     // Ask if user wants to generate a password or enter their own
     const generatePassword = await question('Generate a random secure password? (y/n): ');
-    
+
     let password;
     if (generatePassword.toLowerCase() === 'y') {
       password = generateRandomPassword();
@@ -88,7 +88,7 @@ const checkAndSetupAdmin = async () => {
       role: ROLES.ADMIN,
       roleHistory: [{ role: ROLES.ADMIN, changedAt: new Date() }],
       accountCreatedAt: new Date(),
-      isEmailVerified: true
+      isEmailVerified: true,
     });
 
     await admin.save();
@@ -104,8 +104,7 @@ const checkAndSetupAdmin = async () => {
 
     // Close readline interface
     rl.close();
-
-} catch (error) {
+  } catch (error) {
     console.error('Error setting up admin account:', error.message);
     rl.close();
     process.exit(1);

@@ -29,7 +29,6 @@ import {
   Tooltip
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
-import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import KeyIcon from '@mui/icons-material/Key';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -147,36 +146,13 @@ const UserManagement = () => {
     }
   };
 
-  const handleToggleSuspension = async (user) => {
-    if (currentUser && currentUser.uid === user.uid) {
-      toast.error("You cannot suspend your own account");
+  const approveUser = async (userId, role) => {
+    // Prevent approving as admin
+    if (role === 'admin') {
+      toast.error('Admin role cannot be assigned for security reasons');
       return;
     }
     
-    try {
-      const response = await axios.post(`${API_URL}/admin/toggleSuspension`, 
-        { userId: user.uid },
-        { headers: { Authorization: `Bearer ${token}` }}
-      );
-      
-      if (response.data.success) {
-        // Update the local state to reflect the change
-        setUsers(prevUsers => prevUsers.map(u => 
-          u.uid === user.uid ? { 
-            ...u, 
-            status: response.data.isSuspended ? 'suspended' : 'active' 
-          } : u
-        ));
-        
-        toast.success(response.data.message);
-      }
-    } catch (err) {
-      console.error('Error toggling suspension:', err);
-      toast.error(`Failed to ${user.status === 'suspended' ? 'unsuspend' : 'suspend'} user: ${err.response?.data?.error || err.message}`);
-    }
-  };
-
-  const approveUser = async (userId, role) => {
     try {
       await axios.post(`${API_URL}/admin/assignRole`, {
         userId,
@@ -220,7 +196,8 @@ const UserManagement = () => {
             bgcolor: 'rgba(22, 28, 36, 0.9)',
             borderRadius: 2,
             border: '1px solid rgba(255,255,255,0.1)',
-            mb: 3
+            mb: 3,
+            overflowX: 'auto',
           }}
         >
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -235,14 +212,26 @@ const UserManagement = () => {
           </Box>
           
           {/* Pending Users Table */}
-          <TableContainer>
-            <Table size="small">
+          <TableContainer sx={{ 
+            overflowX: 'auto',
+            '&::-webkit-scrollbar': {
+              height: '8px'
+            },
+            '&::-webkit-scrollbar-track': {
+              backgroundColor: 'rgba(0,0,0,0.1)'
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              borderRadius: '4px'
+            }
+          }}>
+            <Table size="small" sx={{ minWidth: '600px' }}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ color: 'rgba(255,255,255,0.7)' }}>Name</TableCell>
-                  <TableCell sx={{ color: 'rgba(255,255,255,0.7)' }}>Email</TableCell>
-                  <TableCell sx={{ color: 'rgba(255,255,255,0.7)' }}>Registered</TableCell>
-                  <TableCell sx={{ color: 'rgba(255,255,255,0.7)' }}>Actions</TableCell>
+                  <TableCell sx={{ color: 'rgba(255,255,255,0.7)', minWidth: '120px' }}>Name</TableCell>
+                  <TableCell sx={{ color: 'rgba(255,255,255,0.7)', minWidth: '160px' }}>Email</TableCell>
+                  <TableCell sx={{ color: 'rgba(255,255,255,0.7)', minWidth: '120px' }}>Registered</TableCell>
+                  <TableCell sx={{ color: 'rgba(255,255,255,0.7)', minWidth: '180px' }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -288,6 +277,7 @@ const UserManagement = () => {
           bgcolor: 'rgba(22, 28, 36, 0.9)',
           borderRadius: 2,
           border: '1px solid rgba(255,255,255,0.1)',
+          overflowX: 'auto',
         }}
       >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -316,17 +306,29 @@ const UserManagement = () => {
           </Box>
         </Box>
         
-        <TableContainer>
-          <Table size="small">
+        <TableContainer sx={{ 
+          overflowX: 'auto',
+          '&::-webkit-scrollbar': {
+            height: '8px'
+          },
+          '&::-webkit-scrollbar-track': {
+            backgroundColor: 'rgba(0,0,0,0.1)'
+          },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: 'rgba(255,255,255,0.2)',
+            borderRadius: '4px'
+          }
+        }}>
+          <Table size="small" sx={{ minWidth: '750px' }}>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ color: 'rgba(255,255,255,0.7)' }}>Name</TableCell>
-                <TableCell sx={{ color: 'rgba(255,255,255,0.7)' }}>Email</TableCell>
-                <TableCell sx={{ color: 'rgba(255,255,255,0.7)' }}>Role</TableCell>
-                <TableCell sx={{ color: 'rgba(255,255,255,0.7)' }}>Status</TableCell>
-                <TableCell sx={{ color: 'rgba(255,255,255,0.7)' }}>Public Key</TableCell>
-                <TableCell sx={{ color: 'rgba(255,255,255,0.7)' }}>Registered</TableCell>
-                <TableCell sx={{ color: 'rgba(255,255,255,0.7)' }}>Actions</TableCell>
+                <TableCell sx={{ color: 'rgba(255,255,255,0.7)', minWidth: '120px' }}>Name</TableCell>
+                <TableCell sx={{ color: 'rgba(255,255,255,0.7)', minWidth: '160px' }}>Email</TableCell>
+                <TableCell sx={{ color: 'rgba(255,255,255,0.7)', minWidth: '100px' }}>Role</TableCell>
+                <TableCell sx={{ color: 'rgba(255,255,255,0.7)', minWidth: '100px' }}>Status</TableCell>
+                <TableCell sx={{ color: 'rgba(255,255,255,0.7)', minWidth: '90px' }}>Public Key</TableCell>
+                <TableCell sx={{ color: 'rgba(255,255,255,0.7)', minWidth: '120px' }}>Registered</TableCell>
+                <TableCell sx={{ color: 'rgba(255,255,255,0.7)', minWidth: '80px' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -367,7 +369,7 @@ const UserManagement = () => {
                       {new Date(user.createdAt).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
-                      <Stack direction="row" spacing={1}>
+                      <Box display="flex" justifyContent="center" width="100%">
                         <Tooltip title={currentUser && currentUser.uid === user.uid ? "Cannot edit own role" : "Edit Role"}>
                           <span>
                             <IconButton 
@@ -380,23 +382,7 @@ const UserManagement = () => {
                             </IconButton>
                           </span>
                         </Tooltip>
-                        <Tooltip title={
-                          currentUser && currentUser.uid === user.uid 
-                            ? "Cannot suspend own account" 
-                            : user.status === 'suspended' ? 'Unsuspend User' : 'Suspend User'
-                        }>
-                          <span>
-                            <IconButton 
-                              size="small" 
-                              onClick={() => handleToggleSuspension(user)}
-                              sx={{ color: user.status === 'suspended' ? 'success.main' : 'error.main' }}
-                              disabled={currentUser && currentUser.uid === user.uid}
-                            >
-                              <BlockIcon fontSize="small" />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                      </Stack>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -417,10 +403,21 @@ const UserManagement = () => {
       </Paper>
 
       {/* Role Edit Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog}>
-        <DialogTitle>Change User Role</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
+      <Dialog 
+        open={openDialog} 
+        onClose={handleCloseDialog}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            p: 2,
+            minHeight: '300px'
+          }
+        }}
+      >
+        <DialogTitle sx={{ fontSize: '1.5rem', pb: 2 }}>Change User Role</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <DialogContentText sx={{ fontSize: '1.1rem', mb: 3 }}>
             Change the role for {selectedUser?.name || selectedUser?.email || 'User'}
           </DialogContentText>
           <FormControl fullWidth sx={{ mt: 2 }}>
@@ -430,19 +427,21 @@ const UserManagement = () => {
               value={selectedRole}
               label="Role"
               onChange={handleRoleChange}
+              sx={{ fontSize: '1.1rem' }}
             >
-              <MenuItem value="admin">Administrator</MenuItem>
               <MenuItem value="moderator">Moderator</MenuItem>
               <MenuItem value="user">Regular User</MenuItem>
             </Select>
           </FormControl>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={handleCloseDialog} size="large">Cancel</Button>
           <Button 
             onClick={handleSaveRole} 
             disabled={actionLoading || !selectedRole}
             color="primary"
+            variant="contained"
+            size="large"
           >
             {actionLoading ? <CircularProgress size={24} /> : 'Save'}
           </Button>

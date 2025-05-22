@@ -487,7 +487,7 @@ const Home = () => {
           </Container>
         </Box>
       </Box>
-      <style jsx global>{`
+      <style>{`
         .typewriter-wrapper {
           font-size: clamp(1.3rem, 3vw, 1.8rem);
           color: rgba(255, 255, 255, 0.85);
