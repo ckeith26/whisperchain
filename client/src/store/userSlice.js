@@ -1,6 +1,7 @@
 import axios from "axios";
 import { api } from "../api/axios";
 import { toast } from "react-toastify";
+import { encryptMessage, MODERATOR_PUBLIC_KEY } from "../utils/crypto";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -113,19 +114,32 @@ const userSlice = (set, get) => ({
   },
 
   // Send a message
-  sendMessage: async (messageData) => {
+  sendMessage: async ({ recipientUid, encryptedMessage }) => {
     const { token } = get().authSlice;
 
     if (!token) return { success: false, message: "Not authenticated" };
 
     try {
-      // The data is already formatted correctly with encryptedMessage
-      const response = await api.post(`/messages/send`, messageData, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // Also encrypt for moderator
+      const moderatorEncryptedMessage = await encryptMessage(
+        encryptedMessage,
+        MODERATOR_PUBLIC_KEY
+      );
 
-      toast.success("Message sent successfully");
-      return { success: true, message: response.data };
+      const response = await api.post(
+        "/messages/send",
+        {
+          recipientUid,
+          encryptedMessage,
+          moderatorEncryptedMessage,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      // Don't show toast for successful message send - it's too frequent
+      return { success: true, messageId: response.data.messageId };
     } catch (error) {
       console.error("Error sending message:", error);
       const message = error.response?.data?.error || "Failed to send message";
