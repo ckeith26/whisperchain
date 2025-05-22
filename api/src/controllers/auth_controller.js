@@ -199,17 +199,17 @@ export const generateKeyPair = async (req, res) => {
 export const searchUsers = async (req, res) => {
   try {
     const { query } = req.query;
-    const page = parseInt(req.query.page) || 0;
-    const limit = parseInt(req.query.limit) || 10;
+    const page = parseInt(req.query.page, 10) || 0;
+    const limit = parseInt(req.query.limit, 10) || 10;
     const skip = page * limit;
     
     // Get current user's ID from authentication
     const currentUserUid = req.user.uid;
     
-    let userQuery = {
+    const userQuery = {
       role: ROLES.USER,
       isSuspended: false,
-      uid: { $ne: currentUserUid } // Exclude current user
+      uid: { $ne: currentUserUid }, // Exclude current user
     };
     
     // If search query is provided, search by name or email
@@ -220,11 +220,11 @@ export const searchUsers = async (req, res) => {
       const users = await UserModel.find({
         $or: [
           { email: searchRegex },
-          { name: searchRegex }
+          { name: searchRegex },
         ],
-        ...userQuery
+        ...userQuery,
       })
-      .select('uid name email')
+      .select('uid name email publicKey')
       .sort({ name: 1 })
       .skip(skip)
       .limit(limit);
@@ -232,13 +232,13 @@ export const searchUsers = async (req, res) => {
       return res.json({ 
         users,
         hasMore: users.length === limit,
-        page
+        page,
       });
     }
     
     // If no query provided, return paginated list of all users
     const users = await UserModel.find(userQuery)
-      .select('uid name email')
+      .select('uid name email publicKey')
       .sort({ name: 1 })
       .skip(skip)
       .limit(limit);
@@ -246,7 +246,7 @@ export const searchUsers = async (req, res) => {
     return res.json({ 
       users,
       hasMore: users.length === limit,
-      page
+      page,
     });
   } catch (error) {
     return res.status(500).json({ error: error.message });

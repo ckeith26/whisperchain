@@ -209,17 +209,17 @@ const userSlice = (set, get) => ({
         state.userSlice.userPage = 0;
       });
 
-      const response = await api.get(`/auth/searchUsers?page=0&limit=10`, {
+      const response = await api.get(`/auth/searchUsers?query=${encodeURIComponent(query)}&page=0&limit=10`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // Map all users regardless of public key availability
+      // Map all users with consistent publicKey handling
       const availableKeys = (response.data.users || []).map((user) => ({
-          uid: user.uid,
+        uid: user.uid,
         publicKey: user.publicKey || 'No public key available',
         keyId: user.email || `Key-${user.uid.substring(0, 8)}`,
         email: user.email
-        }));
+      }));
 
       set((state) => {
         state.userSlice.users = availableKeys;
@@ -337,13 +337,13 @@ const userSlice = (set, get) => ({
 
       console.log("Server response for users:", response.data);
 
-      // Map all users regardless of public key availability
+      // Map all users with consistent publicKey handling
       const availableKeys = (response.data.users || []).map((user) => ({
-          uid: user.uid,
+        uid: user.uid,
         publicKey: user.publicKey || 'No public key available',
         keyId: user.email || `Key-${user.uid.substring(0, 8)}`,
         email: user.email
-        }));
+      }));
 
       console.log("Processed available keys:", availableKeys);
 
