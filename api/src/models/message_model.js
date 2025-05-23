@@ -5,7 +5,6 @@ const MessageSchema = new Schema(
   {
     messageId: { type: String, required: true, unique: true },
     content: { type: String, required: true }, // Encrypted message content for recipient
-    moderatorContent: { type: String, required: true }, // Encrypted message content for moderators
     senderToken: { type: String, required: true, ref: "AuthToken" },
     recipientUid: { type: String, required: true, ref: "User" },
     sentAt: { type: Date, default: Date.now },
@@ -15,6 +14,7 @@ const MessageSchema = new Schema(
       timestamp: { type: Date },
       modUid: { type: String, ref: "User" },
     },
+    moderatorContent: { type: String }, // Encrypted message content for moderators
   },
   {
     toObject: { virtuals: true },

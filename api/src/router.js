@@ -127,6 +127,16 @@ router
   .route("/moderator/auditLogs")
   .get(requireAuth, requireModerator, ModeratorController.getAuditLogs);
 
+// Moderator public key routes
+router
+  .route("/moderator/public-key")
+  .post(
+    requireAuth,
+    requireModerator,
+    ModeratorController.setModeratorPublicKey
+  )
+  .get(requireAuth, ModeratorController.getModeratorPublicKey);
+
 // Add this route to test audit log protection
 router.get(
   "/moderator/test-audit-protection",
