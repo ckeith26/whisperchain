@@ -32,7 +32,7 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import useStore from "../../../store";
 import { format } from "date-fns";
-import { decryptMessageAsModerator } from "../../../utils/crypto";
+import { decryptAsModerator } from "../../../utils/crypto";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -47,10 +47,10 @@ const FlaggedMessages = () => {
   const [actionNote, setActionNote] = useState("");
   const [actionType, setActionType] = useState("");
   const [totalCount, setTotalCount] = useState(0);
-  const [decryptedContent, setDecryptedContent] = useState("");
-  const [decrypting, setDecrypting] = useState(false);
   const { token } = useStore((state) => state.authSlice);
   const { fetchFlaggedMessageCount } = useStore((state) => state.userSlice);
+  const [decryptedContent, setDecryptedContent] = useState("");
+  const [decrypting, setDecrypting] = useState(false);
 
   useEffect(() => {
     fetchFlaggedMessages();
@@ -68,7 +68,6 @@ const FlaggedMessages = () => {
         }
       );
 
-      // Just use the data as provided by the API
       setFlaggedMessages(response.data.messages || []);
       setTotalCount(response.data.pagination?.totalCount || 0);
       setError(null);
@@ -94,24 +93,23 @@ const FlaggedMessages = () => {
 
   const handleViewMessage = async (message) => {
     setSelected(message);
-    setDecryptedContent("");
     setOpenDialog(true);
-
-    // Attempt to decrypt the message with moderator key
+    setDecryptedContent("");
+    setDecrypting(true);
     if (message.moderatorContent) {
       try {
-        setDecrypting(true);
-        const decrypted = await decryptMessageAsModerator(
-          message.moderatorContent
-        );
+        const decrypted = await decryptAsModerator(message.moderatorContent);
         setDecryptedContent(decrypted);
-      } catch (err) {
-        console.error("Failed to decrypt message:", err);
-        setDecryptedContent("Unable to decrypt message content");
-      } finally {
-        setDecrypting(false);
+      } catch (error) {
+        console.error("Error decrypting message:", error);
+        setDecryptedContent(
+          "Unable to decrypt message. Please ensure you have generated a moderator key pair."
+        );
       }
+    } else {
+      setDecryptedContent("No moderator-encrypted content available.");
     }
+    setDecrypting(false);
   };
 
   const handleCloseDialog = () => {
@@ -119,7 +117,6 @@ const FlaggedMessages = () => {
     setSelected(null);
     setActionNote("");
     setActionType("");
-    setDecryptedContent("");
   };
 
   const formatDate = (dateString) => {
@@ -195,10 +192,9 @@ const FlaggedMessages = () => {
       );
 
       toast.success("User suspended successfully");
-
-      // Refresh data
       handleCloseDialog();
       fetchFlaggedMessages();
+      fetchFlaggedMessageCount();
     } catch (err) {
       console.error("Failed to suspend user:", err);
       toast.error(err.response?.data?.error || "Failed to suspend user");
@@ -226,116 +222,82 @@ const FlaggedMessages = () => {
   return (
     <>
       <Paper
+        elevation={0}
         sx={{
           p: 3,
-          bgcolor: "rgba(22, 28, 36, 0.9)",
-          borderRadius: 2,
+          backgroundColor: "rgba(255,255,255,0.04)",
+          backdropFilter: "blur(10px)",
           border: "1px solid rgba(255,255,255,0.1)",
-          mb: 3,
+          borderRadius: "16px",
+          boxShadow: "0 4px 30px rgba(0, 0, 0, 0.1)",
         }}
       >
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            mb: 3,
-          }}
-        >
-          <Typography variant="h5" component="h1" color="white">
-            Flagged Messages ({totalCount})
-          </Typography>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={fetchFlaggedMessages}
-            disabled={loading}
-          >
-            {loading ? (
-              <CircularProgress size={24} color="inherit" />
-            ) : (
-              "Refresh"
-            )}
-          </Button>
-        </Box>
+        <Typography variant="h5" gutterBottom sx={{ color: "white" }}>
+          Flagged Messages
+        </Typography>
 
-        {flaggedMessages.length === 0 ? (
-          <Alert severity="info">
-            There are no flagged messages to review.
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
           </Alert>
-        ) : (
-          <>
-            <TableContainer>
-              <Table sx={{ minWidth: 650 }}>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ color: "white" }}>Date</TableCell>
-                    <TableCell sx={{ color: "white" }}>Flagged</TableCell>
-                    <TableCell sx={{ color: "white" }}>Sender ID</TableCell>
-                    <TableCell sx={{ color: "white" }}>Recipient ID</TableCell>
-                    <TableCell sx={{ color: "white" }}>Preview</TableCell>
-                    <TableCell sx={{ color: "white" }}>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {flaggedMessages.map((message) => (
-                    <TableRow key={message.messageId}>
-                      <TableCell sx={{ color: "white" }}>
-                        {formatDate(message.sentAt)}
-                      </TableCell>
-                      <TableCell sx={{ color: "white" }}>
-                        {formatDate(message.flaggedAt)}
-                      </TableCell>
-                      <TableCell sx={{ color: "white" }}>
-                        {message.senderUid || "Unknown"}
-                      </TableCell>
-                      <TableCell sx={{ color: "white" }}>
-                        {message.recipient?.uid || "Unknown"}
-                      </TableCell>
-                      <TableCell sx={{ color: "white" }}>
-                        {message.content.length > 30
-                          ? `${message.content.substring(0, 30)}...`
-                          : message.content}
-                      </TableCell>
-                      <TableCell>
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={() => handleViewMessage(message)}
-                        >
-                          <VisibilityIcon />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            <TablePagination
-              component="div"
-              count={totalCount}
-              page={page}
-              onPageChange={handleChangePage}
-              rowsPerPage={rowsPerPage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-              sx={{
-                color: "white",
-                ".MuiTablePagination-select": {
-                  color: "white",
-                },
-                ".MuiTablePagination-selectIcon": {
-                  color: "white",
-                },
-                ".MuiTablePagination-displayedRows": {
-                  color: "white",
-                },
-                ".MuiSvgIcon-root": {
-                  color: "white",
-                },
-              }}
-            />
-          </>
         )}
+
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ color: "white" }}>Sent At</TableCell>
+                <TableCell sx={{ color: "white" }}>Flagged At</TableCell>
+                <TableCell sx={{ color: "white" }}>Sender ID</TableCell>
+                <TableCell sx={{ color: "white" }}>Recipient ID</TableCell>
+                <TableCell sx={{ color: "white" }}>Content Preview</TableCell>
+                <TableCell sx={{ color: "white" }}>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {flaggedMessages.map((message) => (
+                <TableRow key={message.messageId}>
+                  <TableCell sx={{ color: "white" }}>
+                    {formatDate(message.sentAt)}
+                  </TableCell>
+                  <TableCell sx={{ color: "white" }}>
+                    {formatDate(message.flaggedAt)}
+                  </TableCell>
+                  <TableCell sx={{ color: "white" }}>
+                    {message.senderUid || "Unknown"}
+                  </TableCell>
+                  <TableCell sx={{ color: "white" }}>
+                    {message.recipient?.uid || "Unknown"}
+                  </TableCell>
+                  <TableCell sx={{ color: "white" }}>
+                    {message.content.length > 30
+                      ? `${message.content.substring(0, 30)}...`
+                      : message.content}
+                  </TableCell>
+                  <TableCell>
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      onClick={() => handleViewMessage(message)}
+                    >
+                      <VisibilityIcon />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        <TablePagination
+          component="div"
+          count={totalCount}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          sx={{ color: "white" }}
+        />
       </Paper>
 
       {/* Message detail dialog */}
@@ -372,67 +334,39 @@ const FlaggedMessages = () => {
                 </Typography>
               </Box>
 
+              <Typography
+                variant="body2"
+                color="white"
+                gutterBottom
+                fontWeight="bold"
+              >
+                Decrypted Message Content:
+              </Typography>
               {decrypting ? (
-                <Box display="flex" justifyContent="center" my={2}>
-                  <CircularProgress size={24} sx={{ color: "white" }} />
-                </Box>
-              ) : decryptedContent ? (
-                <>
-                  <Typography
-                    variant="body2"
-                    color="white"
-                    gutterBottom
-                    sx={{ fontWeight: "bold" }}
-                  >
-                    Decrypted Message Content:
-                  </Typography>
-                  <DialogContentText
-                    color="white"
-                    sx={{
-                      mb: 3,
-                      p: 2,
-                      bgcolor: "rgba(0,0,0,0.3)",
-                      borderRadius: 1,
-                    }}
-                  >
-                    {decryptedContent}
-                  </DialogContentText>
-                </>
+                <CircularProgress size={24} sx={{ color: "white", mb: 2 }} />
               ) : (
-                <>
-                  <Typography
-                    variant="body2"
-                    color="white"
-                    gutterBottom
-                    sx={{ fontWeight: "bold" }}
-                  >
-                    Encrypted Message Content (Cannot decrypt - no moderator
-                    content available):
-                  </Typography>
-                  <DialogContentText
-                    color="white"
-                    sx={{
-                      mb: 3,
-                      p: 2,
-                      bgcolor: "rgba(0,0,0,0.3)",
-                      borderRadius: 1,
-                    }}
-                  >
-                    {selected.content.substring(0, 100)}...
-                  </DialogContentText>
-                </>
+                <DialogContentText
+                  color="white"
+                  sx={{
+                    mb: 3,
+                    p: 2,
+                    bgcolor: "rgba(0,0,0,0.3)",
+                    borderRadius: 1,
+                  }}
+                >
+                  {decryptedContent}
+                </DialogContentText>
               )}
 
               <TextField
                 fullWidth
                 multiline
                 rows={3}
-                variant="outlined"
-                label="Moderator Notes"
+                label="Action Note"
                 value={actionNote}
                 onChange={(e) => setActionNote(e.target.value)}
                 sx={{
-                  mb: 2,
+                  mb: 3,
                   "& .MuiOutlinedInput-root": {
                     color: "white",
                     "& fieldset": {
@@ -440,6 +374,9 @@ const FlaggedMessages = () => {
                     },
                     "&:hover fieldset": {
                       borderColor: "rgba(255,255,255,0.5)",
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "primary.main",
                     },
                   },
                   "& .MuiInputLabel-root": {

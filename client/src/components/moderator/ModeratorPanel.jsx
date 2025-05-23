@@ -26,9 +26,11 @@ import MenuIcon from "@mui/icons-material/Menu";
 import FlagIcon from "@mui/icons-material/Flag";
 import HistoryIcon from "@mui/icons-material/History";
 import LogoutIcon from "@mui/icons-material/Logout";
+import KeyIcon from "@mui/icons-material/Key";
 import FlaggedMessages from "./views/FlaggedMessages";
 import AuditLogs from "./views/AuditLogs";
 import AuditLogTester from "./views/AuditLogTester";
+import ModeratorKeyPair from "./ModeratorKeyPair";
 
 const drawerWidth = 240;
 
@@ -175,6 +177,17 @@ const ModeratorPanel = () => {
           </ListItemIcon>
           <ListItemText primary="Test Audit Protection" />
         </ListItem>
+        <ListItem
+          button
+          selected={tabValue === 3}
+          onClick={() => setTabValue(3)}
+          sx={{ "&.Mui-selected": { bgcolor: "rgba(255,255,255,0.1)" } }}
+        >
+          <ListItemIcon sx={{ color: "white" }}>
+            <KeyIcon />
+          </ListItemIcon>
+          <ListItemText primary="Key Management" />
+        </ListItem>
       </List>
       <Divider sx={{ bgcolor: "rgba(255,255,255,0.1)", mt: "auto" }} />
       <List>
@@ -250,6 +263,7 @@ const ModeratorPanel = () => {
             />
             <Tab icon={<HistoryIcon />} label="Audit Logs" />
             <Tab icon={<AuditLogTester />} label="Test Audit Protection" />
+            <Tab icon={<KeyIcon />} label="Key Management" />
           </Tabs>
         </Box>
       </AppBar>
@@ -310,6 +324,9 @@ const ModeratorPanel = () => {
           </TabPanel>
           <TabPanel value={tabValue} index={2}>
             <AuditLogTester />
+          </TabPanel>
+          <TabPanel value={tabValue} index={3}>
+            <ModeratorKeyPair />
           </TabPanel>
         </Container>
       </Box>

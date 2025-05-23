@@ -7,12 +7,10 @@ import AuditLogModel, { ACTION_TYPES } from "../models/audit_log_model";
 // Send a message with authentication token
 export const sendMessage = async (req, res) => {
   try {
-    const { recipientUid, encryptedMessage, moderatorEncryptedMessage } =
-      req.body;
-    if (!recipientUid || !encryptedMessage || !moderatorEncryptedMessage) {
+    const { recipientUid, encryptedMessage } = req.body;
+    if (!recipientUid || !encryptedMessage) {
       return res.status(400).json({
-        error:
-          "Recipient ID, message content, and moderator content are required",
+        error: "Recipient ID and message content are required",
       });
     }
 
@@ -58,7 +56,6 @@ export const sendMessage = async (req, res) => {
     const message = new MessageModel({
       messageId,
       content: encryptedMessage,
-      moderatorContent: moderatorEncryptedMessage,
       senderToken: authToken,
       recipientUid,
       sentAt: new Date(),
@@ -153,7 +150,7 @@ export const getMessages = async (req, res) => {
 export const flagMessage = async (req, res) => {
   try {
     const userId = req.user.uid;
-    const { messageId, unflag } = req.body;
+    const { messageId, unflag, moderatorContent } = req.body;
 
     if (!messageId) {
       return res.status(400).json({ error: "Message ID is required" });
@@ -207,6 +204,9 @@ export const flagMessage = async (req, res) => {
         timestamp: new Date(),
         modUid: null, // Will be updated when a moderator reviews it
       };
+      if (moderatorContent) {
+        message.moderatorContent = moderatorContent;
+      }
       await message.save();
 
       // Log flagging action

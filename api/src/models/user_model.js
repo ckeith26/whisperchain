@@ -1,13 +1,13 @@
-import mongoose, { Schema } from 'mongoose';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import mongoose, { Schema } from "mongoose";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 // Define user roles
 const ROLES = {
-  USER: 'user',
-  MODERATOR: 'moderator',
-  ADMIN: 'admin',
-  IDLE: 'idle',
+  USER: "user",
+  MODERATOR: "moderator",
+  ADMIN: "admin",
+  IDLE: "idle",
 };
 
 const UserSchema = new Schema(
@@ -16,10 +16,12 @@ const UserSchema = new Schema(
       type: String,
       unique: true,
       lowercase: true,
-      required: [true, 'Email is required'],
+      required: [true, "Email is required"],
       validate: {
         validator(v) {
-          return /^((?!.*\.\.)[A-Za-z0-9!#$%&'*+-/=?^_`{|}~]+(\.[A-Za-z0-9!#$%&'*+-/=?^_`{|}~]+)*|"([^"]*)")@[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*\.[A-Za-z]{2,}$/.test(v);
+          return /^((?!.*\.\.)[A-Za-z0-9!#$%&'*+-/=?^_`{|}~]+(\.[A-Za-z0-9!#$%&'*+-/=?^_`{|}~]+)*|"([^"]*)")@[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*\.[A-Za-z]{2,}$/.test(
+            v
+          );
         },
         message: (props) => `${props.value} is not a valid email address`,
       },
@@ -54,15 +56,19 @@ const UserSchema = new Schema(
     uid: { type: String, required: true, unique: true },
     name: { type: String, required: true },
     publicKey: { type: String },
-    sentMessages: [{ type: Schema.Types.ObjectId, ref: 'Message' }],
-    receivedMessages: [{ type: Schema.Types.ObjectId, ref: 'Message' }],
+    moderatorPublicKey: { type: String },
+    moderatorPublicKeyUpdatedAt: { type: Date },
+    sentMessages: [{ type: Schema.Types.ObjectId, ref: "Message" }],
+    receivedMessages: [{ type: Schema.Types.ObjectId, ref: "Message" }],
     accountCreatedAt: { type: Date, default: Date.now },
-    roleHistory: [{
-      role: { type: String, enum: Object.values(ROLES) },
-      changedAt: { type: Date, default: Date.now },
-      verifiedAt: { type: Date, default: null },
-      verifiedBy: { type: Schema.Types.ObjectId, ref: 'User' },
-    }],
+    roleHistory: [
+      {
+        role: { type: String, enum: Object.values(ROLES) },
+        changedAt: { type: Date, default: Date.now },
+        verifiedAt: { type: Date, default: null },
+        verifiedBy: { type: Schema.Types.ObjectId, ref: "User" },
+      },
+    ],
     isSuspended: { type: Boolean, default: false },
   },
   {
@@ -73,37 +79,39 @@ const UserSchema = new Schema(
 );
 
 // Hash password if provided and modified
-UserSchema.pre('save', async function (next) {
+UserSchema.pre("save", async function (next) {
   const user = this;
   // If password is not modified or doesn't exist, skip hashing
-  if (!user.isModified('password') || !user.password) return next();
+  if (!user.isModified("password") || !user.password) return next();
 
   try {
-    console.log('Hashing password for user:', user.email);
+    console.log("Hashing password for user:", user.email);
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(user.password, salt);
 
     user.password = hashedPassword;
     next();
   } catch (err) {
-    console.error('Error hashing password:', err.message);
+    console.error("Error hashing password:", err.message);
     next(new Error(`Error hashing password: ${err.message}`));
   }
 });
 
 // Generate a unique username if not provided
-UserSchema.pre('save', async function (next) {
+UserSchema.pre("save", async function (next) {
   if (this.username) return next();
 
-  const baseUsernameRaw = this.email.split('@')[0];
-  const baseUsername = baseUsernameRaw.replace(/[^a-zA-Z0-9_-]/g, '');
-  
+  const baseUsernameRaw = this.email.split("@")[0];
+  const baseUsername = baseUsernameRaw.replace(/[^a-zA-Z0-9_-]/g, "");
+
   let generatedUsername = baseUsername;
   let counter = 0;
   let usernameExists = true;
 
   while (usernameExists) {
-    const existingUser = await this.constructor.findOne({ username: generatedUsername });
+    const existingUser = await this.constructor.findOne({
+      username: generatedUsername,
+    });
     if (!existingUser) {
       usernameExists = false;
     } else {
@@ -116,17 +124,17 @@ UserSchema.pre('save', async function (next) {
   next();
 });
 
-UserSchema.virtual('chats', {
-  ref: 'Chat',
-  localField: '_id',
-  foreignField: 'user',
+UserSchema.virtual("chats", {
+  ref: "Chat",
+  localField: "_id",
+  foreignField: "user",
   justOne: false,
 });
 
-UserSchema.virtual('projects', {
-  ref: 'Project',
-  localField: '_id',
-  foreignField: 'user',
+UserSchema.virtual("projects", {
+  ref: "Project",
+  localField: "_id",
+  foreignField: "user",
   justOne: false,
 });
 
@@ -134,14 +142,14 @@ UserSchema.virtual('projects', {
 UserSchema.methods.comparePassword = async function (candidatePassword) {
   try {
     if (!this.password) {
-      console.error('Password field is not set for user:', this.email);
-      throw new Error('Password field is not set. Include password in query.');
-    }    
+      console.error("Password field is not set for user:", this.email);
+      throw new Error("Password field is not set. Include password in query.");
+    }
     const result = await bcrypt.compare(candidatePassword, this.password);
 
     return result;
   } catch (err) {
-    console.error('Error in comparePassword:', err.message);
+    console.error("Error in comparePassword:", err.message);
     throw new Error(`Error comparing passwords: ${err.message}`);
   }
 };
@@ -158,12 +166,12 @@ UserSchema.methods.generateHash = async function generateHash(password) {
 UserSchema.methods.updateRole = function updateRole(role) {
   this.roleHistory.push({
     role: this.role,
-    changedAt: new Date()
+    changedAt: new Date(),
   });
   this.role = role;
 };
 
-const UserModel = mongoose.model('User', UserSchema);
+const UserModel = mongoose.model("User", UserSchema);
 
 export { ROLES };
 export default UserModel;

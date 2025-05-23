@@ -2,16 +2,9 @@
  * Utility functions for cryptographic operations
  */
 
-// Hardcoded moderator key pair for now
-// In production, this would be securely managed and stored
-export const MODERATOR_PUBLIC_KEY =
-  "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuuDrKMzBJtU3GBEwGqKbENYwqx5a1qhzZ5xvL5EbEuZKUg9cXKIw4Q1RxO3EvqOCJpZAC3t1I7PCSYXRuk9vYpnfdxTzYwIhAMO++KNGv8kV3D5IxNAl8hHBS/OUxyrXWh+JIE80nCeJxQAs7S9IqbJrvEPpYXG8RcjfGXSS5bDj4g6LWPBlwKAA8KnnDYN5Zkb2xuxvQhRlceITsvXHoQr1KwFfk8Z7RwKbDG8rXkQB3KjVD8G+1aFAsgwLx/+YngxEy1C89WjMwKsSi4vO5FVDtpn/1fFyQBvLc+0F4WECzoMfxr0hBiGZOYXu5qgfnjp9lyGwHwPpZTLQ3sTW9QIDAQAB";
-export const MODERATOR_PRIVATE_KEY =
-  "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC64OsozMEm1TcYETAaopsQ1jCrHlrWqHNnnG8vkRsS5kpSD1xcojDhDVHE7cS+o4ImlkALe3Ujs8JJhdG6T29imd93FPNjAiEAw774o0a/yRXcPkjE0CXyEcFL85THKtdaH4kgTzScJ4nFACztr0ipsmK8Q+lhcbxFyN8ZdJLlsOPiDotY8GXAoADwqecNg3lmRvbG7G9CFGVx4hOy9cehCvUrAV+TxntHApsYbyteRAHcqNUPwb7VoUCyDAvH/5ieDETLULz1aMzAqxKLi87kVUO2mf/V8XJAG8tz7QXhYQLOgx/GvSEGIZk5he7mqB+eOn2XIbAfA+llMtDexNb1AgMBAAECggEAEbdEARCH4wYQPqrHXUQ5jUXrDZ2XuQQYNZGQAXH1fKHfXRljBVY87JD0fOl9gVRzzhxkHVbmYoJCR5aZUcvHQkI3X3phaRBpMlxRFrMJGSgvE6y58MCT7HjHYlZa/Xf0EnJuZ2CKYUlNZvfsg6LV65CDaNKdiPDJZWuESHpgF9pep61jLGc2QBbzuRXxKPfuqP2JmxQPQpKokUEFZp2OJBwQRNd+WhTHh5mSK5J7dQ+HgQGT15YX75KnRsekHvRKhLBdAexZaKnGZ5vH8fZ3F75y/lHkMikvpuSS1pWbNLmCe7fQTrfFjUfvgl78qiZg+lK5R0QgzhFkPD3lU2QKAQKBgQDrcIZeZdI9iIYbq6OhSPKvoqmJGZLlIAJGTG5UIRk1aCnFaYePIX4t6ZcoATlbrWGKZ7eFCNYvUoC300JKpOO+NZWgvfXL8Cyxi5ZNy38GbHr5D0gDVKepKHA/UraGkIBLxVE9HgpcR3YWlTXPyDV1F7S3MQl4kKbKGt0u3bOcNQKBgQDLTG4p8XxdK5VBfddnw0RCzAGaCTFEwYEDIBqa+tqPBYjS5KPIpvFV2qPuPPQE5nHQGaNhN9hT77YGgBOFpFOC0QePBAdkgDx7cHS3UcnDQheyTRmjkSyFUYY1OxMPL4V8GW+nWcLXEzdvd8aGE6z40dXBh2jP7iZIV+S/qrP+wQKBgQCF6XKEZZ0Jyw67O1xbI6Dw5qkVoE7E3yYnkS+BZvZwA2Bv4UmIPpuQRFDGlHwVwxouNhYRi6Mkj4t3KNCQOGgsiqcDnrhIAN9hVUaJWKQmQwzS9KO8y6vB5pGn+dJPNTlPtVvpTiD0gwGT1jDR23TQh04OXQLWKTTCzNUFaFPO8QKBgAOg5xBKMJnCmXObPYzc2RVnc+DSJLIQvqwDYXHOrhZhjRImUJ4iLDYOGZbTibQJLfcVpVLdlnU7WdYr9mT0XKEn4FoXHb8J0LPm5cRSbLw8BYjYLxTtjwZi6lScY/MjJUiWwDQDgRe58sBfsuHLjCWtTnYbPHnuQrVCQVJcVswBAoGAFFp91YRF/nWRAiWLAXIqLOIpVRuLPS1zL2cX4HukfHh5nsQvF0juR5Im5BTrgGpj9NrIcM03XiHmGLsjONgCDY7uKUMA49SQDGk9LO4v3ymEPZQ3TWzYC7cXQmVeG0hJ9jncHTj2WLjgtdtNP5F8YY2ob7n+JzJP5KBK8OXqRLY=";
-
 /**
  * Generates an RSA key pair for secure messaging and stores the private key
- * @returns {Promise<{publicKey: string}>} The generated public key in base64 format
+ * @returns {Promise<{publicKey: string, privateKey: string}>} The generated key pair in base64 format
  */
 export const generateKeyPair = async () => {
   try {
@@ -27,7 +20,7 @@ export const generateKeyPair = async () => {
       ["encrypt", "decrypt"]
     );
 
-    // Export public key to base64 format for server storage
+    // Export public key to base64 format
     const publicKeyBuffer = await window.crypto.subtle.exportKey(
       "spki",
       keyPair.publicKey
@@ -36,7 +29,7 @@ export const generateKeyPair = async () => {
       String.fromCharCode(...new Uint8Array(publicKeyBuffer))
     );
 
-    // Export and store private key
+    // Export private key to base64 format
     const privateKeyBuffer = await window.crypto.subtle.exportKey(
       "pkcs8",
       keyPair.privateKey
@@ -45,11 +38,9 @@ export const generateKeyPair = async () => {
       String.fromCharCode(...new Uint8Array(privateKeyBuffer))
     );
 
-    // Store private key in localStorage
-    localStorage.setItem("privateKey", privateKeyBase64);
-
     return {
       publicKey: publicKeyBase64,
+      privateKey: privateKeyBase64,
     };
   } catch (error) {
     console.error("Key generation error:", error);
@@ -148,20 +139,70 @@ export const decryptMessage = async (encryptedMessageBase64) => {
 };
 
 /**
- * Decrypts a message using the moderator private key
+ * Encrypts a message using the moderator's public key
+ * @param {string} message - The message to encrypt
+ * @returns {Promise<string>} Encrypted message in base64
+ */
+export const encryptForModerator = async (message) => {
+  try {
+    // Hardcoded moderator public key
+    const MODERATOR_PUBLIC_KEY =
+      "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxH0/X1Ey9MdGNnXHGT/ZmG3lY8zTgf85HZMi3ISqwS3QDH/lPgQUx+9HHcvM7kpbB03LsDsZ58rWPVjwCKL4/rpoItVKTWNmEkc4qVii//ZSP52RP2etxyh9DaBa0Y1QylnRLX6Br3WqEpYko1V8ZsgyeUQwh9m9jH0T3prtnDMyIznH9MVNwbqRrfNbiMzxwHyvUzVjTLGZ2161y7Z86wvg8DzbedJpGjuROW15rpq9LzAcJNb7r8JP/+6d//zafdMZ4gn9eG4FWI78QarCt4es0itwqNQboOTRujEmR7ixNDwdPV9CaUsa+BfpPNAVK1x7kQ5h6zvBpFW7btdEMQIDAQAB";
+
+    // Convert base64 public key back to CryptoKey
+    const publicKeyBuffer = Uint8Array.from(atob(MODERATOR_PUBLIC_KEY), (c) =>
+      c.charCodeAt(0)
+    );
+    const cryptoKey = await window.crypto.subtle.importKey(
+      "spki",
+      publicKeyBuffer,
+      {
+        name: "RSA-OAEP",
+        hash: "SHA-256",
+      },
+      true,
+      ["encrypt"]
+    );
+
+    // Encrypt the message
+    const encoder = new TextEncoder();
+    const messageBuffer = encoder.encode(message);
+    const encryptedBuffer = await window.crypto.subtle.encrypt(
+      { name: "RSA-OAEP" },
+      cryptoKey,
+      messageBuffer
+    );
+
+    // Convert to base64
+    return btoa(String.fromCharCode(...new Uint8Array(encryptedBuffer)));
+  } catch (error) {
+    console.error("Moderator encryption error:", error);
+    throw new Error("Failed to encrypt message for moderator");
+  }
+};
+
+/**
+ * Decrypts a message using the moderator's private key
  * @param {string} encryptedMessageBase64 - Encrypted message in base64
  * @returns {Promise<string>} Decrypted message
  */
-export const decryptMessageAsModerator = async (encryptedMessageBase64) => {
+export const decryptAsModerator = async (encryptedMessageBase64) => {
   try {
-    // Use the hardcoded moderator private key
-    const privateKeyBase64 = MODERATOR_PRIVATE_KEY;
+    // Get moderator's private key from localStorage
+    const storedKeyPair = localStorage.getItem("moderatorKeyPair");
+    if (!storedKeyPair) {
+      throw new Error(
+        "No moderator key pair found. Please generate one first."
+      );
+    }
+
+    const { privateKey } = JSON.parse(storedKeyPair);
 
     // Convert base64 private key back to CryptoKey
-    const privateKeyBuffer = Uint8Array.from(atob(privateKeyBase64), (c) =>
+    const privateKeyBuffer = Uint8Array.from(atob(privateKey), (c) =>
       c.charCodeAt(0)
     );
-    const privateKey = await window.crypto.subtle.importKey(
+    const cryptoKey = await window.crypto.subtle.importKey(
       "pkcs8",
       privateKeyBuffer,
       {
@@ -178,7 +219,7 @@ export const decryptMessageAsModerator = async (encryptedMessageBase64) => {
     );
     const decryptedBuffer = await window.crypto.subtle.decrypt(
       { name: "RSA-OAEP" },
-      privateKey,
+      cryptoKey,
       encryptedBuffer
     );
 

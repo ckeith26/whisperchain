@@ -1,7 +1,11 @@
 import axios from "axios";
 import { api } from "../api/axios";
 import { toast } from "react-toastify";
-import { encryptMessage, MODERATOR_PUBLIC_KEY } from "../utils/crypto";
+import {
+  encryptMessage,
+  decryptMessage,
+  encryptForModerator,
+} from "../utils/crypto";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -120,18 +124,11 @@ const userSlice = (set, get) => ({
     if (!token) return { success: false, message: "Not authenticated" };
 
     try {
-      // Also encrypt for moderator
-      const moderatorEncryptedMessage = await encryptMessage(
-        encryptedMessage,
-        MODERATOR_PUBLIC_KEY
-      );
-
       const response = await api.post(
         "/messages/send",
         {
           recipientUid,
           encryptedMessage,
-          moderatorEncryptedMessage,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -151,7 +148,6 @@ const userSlice = (set, get) => ({
   // Flag a message
   flagMessage: async (messageId) => {
     const { token } = get().authSlice;
-
     if (!token) return { success: false, message: "Not authenticated" };
 
     try {
@@ -160,19 +156,52 @@ const userSlice = (set, get) => ({
       const currentMessage = messages.find(
         (msg) => msg.messageId === messageId
       );
+
+      if (!currentMessage) {
+        return { success: false, message: "Message not found" };
+      }
+
       const currentlyFlagged = currentMessage?.flagged || false;
 
+      let moderatorEncryptedContent = undefined;
+      if (!currentlyFlagged) {
+        try {
+          // Only do this when flagging (not unflagging)
+          // Decrypt the message locally
+          const decrypted = await decryptMessage(currentMessage.content);
+          if (!decrypted) {
+            throw new Error("Failed to decrypt message");
+          }
+          // Encrypt for moderator
+          moderatorEncryptedContent = await encryptForModerator(decrypted);
+          if (!moderatorEncryptedContent) {
+            throw new Error("Failed to encrypt message for moderator");
+          }
+        } catch (error) {
+          console.error("Error processing message for flagging:", error);
+          return {
+            success: false,
+            message: "Failed to process message for flagging",
+          };
+        }
+      }
+
       // Send request to toggle flag status
-      await api.post(
+      const response = await api.post(
         `/messages/flag`,
         {
           messageId,
           unflag: currentlyFlagged, // Send unflag: true when we want to unflag
+          moderatorContent: moderatorEncryptedContent,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
+
+      if (!response.data.success) {
+        throw new Error(response.data.message || "Failed to flag message");
+      }
 
       // Update message state with the toggled flag value
       set((state) => {
@@ -191,7 +220,9 @@ const userSlice = (set, get) => ({
     } catch (error) {
       console.error("Error toggling message flag:", error);
       const message =
-        error.response?.data?.error || "Failed to toggle message flag";
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to toggle message flag";
       toast.error(message);
       return { success: false, message };
     }
@@ -209,16 +240,19 @@ const userSlice = (set, get) => ({
         state.userSlice.userPage = 0;
       });
 
-      const response = await api.get(`/auth/searchUsers?query=${encodeURIComponent(query)}&page=0&limit=10`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await api.get(
+        `/auth/searchUsers?query=${encodeURIComponent(query)}&page=0&limit=10`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
 
       // Map all users with consistent publicKey handling
       const availableKeys = (response.data.users || []).map((user) => ({
         uid: user.uid,
-        publicKey: user.publicKey || 'No public key available',
+        publicKey: user.publicKey || "No public key available",
         keyId: user.email || `Key-${user.uid.substring(0, 8)}`,
-        email: user.email
+        email: user.email,
       }));
 
       set((state) => {
@@ -340,9 +374,9 @@ const userSlice = (set, get) => ({
       // Map all users with consistent publicKey handling
       const availableKeys = (response.data.users || []).map((user) => ({
         uid: user.uid,
-        publicKey: user.publicKey || 'No public key available',
+        publicKey: user.publicKey || "No public key available",
         keyId: user.email || `Key-${user.uid.substring(0, 8)}`,
-        email: user.email
+        email: user.email,
       }));
 
       console.log("Processed available keys:", availableKeys);
@@ -390,16 +424,13 @@ const userSlice = (set, get) => ({
       // Map the additional users
       const additionalUsers = (response.data.users || []).map((user) => ({
         uid: user.uid,
-        publicKey: user.publicKey || 'No public key available',
+        publicKey: user.publicKey || "No public key available",
         keyId: user.email || `Key-${user.uid.substring(0, 8)}`,
-        email: user.email
+        email: user.email,
       }));
 
       set((state) => {
-        state.userSlice.users = [
-          ...state.userSlice.users,
-          ...additionalUsers
-        ];
+        state.userSlice.users = [...state.userSlice.users, ...additionalUsers];
         state.userSlice.userLoading = false;
         state.userSlice.userPage = nextPage;
         state.userSlice.hasMoreUsers = response.data.hasMore || false;

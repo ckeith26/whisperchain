@@ -12,6 +12,7 @@ const ACTION_TYPES = {
   MESSAGE_UNFLAGGED: "message_unflagged",
   MESSAGE_MODERATED: "message_moderated",
   TOKEN_FROZEN: "token_frozen",
+  MODERATOR_KEY_UPDATED: "moderator_key_updated",
 };
 
 // Audit Log schema for logging all system actions

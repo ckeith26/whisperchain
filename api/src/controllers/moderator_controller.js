@@ -541,3 +541,77 @@ export const getTestLog = async (req, res) => {
     res.status(404).json({ error: error.message });
   }
 };
+
+// Set moderator public key (for encrypting flagged messages)
+export const setModeratorPublicKey = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const { publicKey } = req.body;
+
+    if (!publicKey) {
+      return res.status(400).json({ error: "Public key is required" });
+    }
+
+    // Verify user is a moderator
+    const moderator = await UserModel.findOne({
+      uid: userId,
+      $or: [{ role: ROLES.MODERATOR }, { role: ROLES.ADMIN }],
+    });
+
+    if (!moderator) {
+      return res.status(403).json({
+        error: "You do not have permission to set moderator public key",
+      });
+    }
+
+    // Store the public key in the moderator's profile
+    moderator.moderatorPublicKey = publicKey;
+    moderator.moderatorPublicKeyUpdatedAt = new Date();
+    await moderator.save();
+
+    // Log public key update
+    await new AuditLogModel({
+      actionType: ACTION_TYPES.MODERATOR_KEY_UPDATED,
+      targetId: userId,
+      metadata: {
+        moderatorId: userId,
+        action: "public_key_updated",
+      },
+    }).save();
+
+    return res.json({
+      success: true,
+      message: "Moderator public key updated successfully",
+    });
+  } catch (error) {
+    console.error("Error setting moderator public key:", error.message);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+// Get moderator public key (for encrypting flagged messages)
+export const getModeratorPublicKey = async (req, res) => {
+  try {
+    // Find any moderator with a public key
+    const moderator = await UserModel.findOne({
+      $or: [{ role: ROLES.MODERATOR }, { role: ROLES.ADMIN }],
+      moderatorPublicKey: { $exists: true, $ne: null },
+    });
+
+    if (!moderator || !moderator.moderatorPublicKey) {
+      return res.status(404).json({
+        error:
+          "No moderator public key found. Please contact the moderator to set up their key pair.",
+      });
+    }
+
+    return res.json({
+      success: true,
+      publicKey: moderator.moderatorPublicKey,
+      updatedAt: moderator.moderatorPublicKeyUpdatedAt,
+    });
+  } catch (error) {
+    console.error("Error getting moderator public key:", error.message);
+    return res.status(500).json({ error: error.message });
+  }
+};
