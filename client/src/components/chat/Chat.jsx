@@ -35,11 +35,8 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import useStore from "../../store";
 import { useNavigate, useLocation } from "react-router-dom";
 import AppAppBar from "../shared-components/AppAppBar/AppAppBar";
-import {
-  encryptMessage,
-  decryptMessage,
-  MODERATOR_PUBLIC_KEY,
-} from "../../utils/crypto";
+import { encryptMessage, decryptMessage } from "../../utils/crypto";
+import { toast } from "react-toastify";
 
 const Chat = ({ view }) => {
   const navigate = useNavigate();
@@ -331,17 +328,10 @@ const Chat = ({ view }) => {
         selectedUser.publicKey
       );
 
-      // Also encrypt the message using moderator's public key
-      const moderatorEncryptedContent = await encryptMessage(
-        newMessage,
-        MODERATOR_PUBLIC_KEY
-      );
-
-      // Send the encrypted message with both versions
+      // Send the encrypted message
       const result = await sendMessage({
         recipientUid: recipient,
         encryptedMessage: encryptedContent,
-        moderatorEncryptedMessage: moderatorEncryptedContent,
       });
 
       if (result.success) {
@@ -358,9 +348,13 @@ const Chat = ({ view }) => {
 
   const handleFlagMessage = async (messageId) => {
     try {
-      await flagMessage(messageId);
+      const result = await flagMessage(messageId);
+      if (!result.success) {
+        toast.error(result.message || "Failed to flag message");
+      }
     } catch (err) {
       console.error("Error flagging message:", err);
+      toast.error(err.message || "Failed to flag message");
     }
   };
 
