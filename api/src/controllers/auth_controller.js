@@ -4,6 +4,8 @@ import { nanoid } from 'nanoid';
 import bcrypt from 'bcryptjs';
 import UserModel, { ROLES } from '../models/user_model';
 import AuditLogModel, { ACTION_TYPES } from '../models/audit_log_model';
+import VerificationCodeModel from '../models/verification_code_model';
+import sendVerificationEmail from '../services/email_service';
 
 dotenv.config();
 
@@ -14,7 +16,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'whisperchain_secure_fallback_key';
 export const register = async (req, res) => {
   try {
     const {
-      email, password, name, role,
+      email, password, name, role, verificationCode,
     } = req.body;
 
     console.log('Registration attempt:', { email, role, passwordLength: password?.length });
@@ -31,6 +33,44 @@ export const register = async (req, res) => {
 
     if (password.length < 8) {
       return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+    }
+
+    // If verification code is provided, verify it before registration
+    if (verificationCode) {
+      const verification = await VerificationCodeModel.findOne({
+        email,
+        code: verificationCode,
+        isUsed: false,
+      });
+
+      if (!verification) {
+        return res.status(401).json({ error: 'Invalid or expired verification code' });
+      }
+
+      // Mark the code as used
+      verification.isUsed = true;
+      await verification.save();
+    } else {
+      // If no verification code provided, send one
+      // Generate a purely numeric 6-digit code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // Save the code
+      const verificationCode = new VerificationCodeModel({
+        email,
+        code,
+      });
+      
+      await verificationCode.save();
+      
+      // Send the code via email
+      await sendVerificationEmail(email, code);
+      
+      return res.status(200).json({
+        success: true,
+        message: 'Verification code sent',
+        requiresVerification: true
+      });
     }
 
     // Generate a unique user ID
@@ -95,7 +135,7 @@ export const register = async (req, res) => {
 // Login user
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, verificationCode } = req.body;
     console.log('Login attempt:', { email, passwordLength: password?.length });
 
     // Find user by email and explicitly select the password field
@@ -138,6 +178,70 @@ export const login = async (req, res) => {
       return res.status(500).json({ error: 'Error comparing passwords: ' + compareError.message });
     }
 
+    // If verification code is provided, verify it
+    if (verificationCode) {
+      const verification = await VerificationCodeModel.findOne({
+        email,
+        code: verificationCode,
+        isUsed: false,
+      });
+
+      if (!verification) {
+        return res.status(401).json({ error: 'Invalid or expired verification code' });
+      }
+
+      // Mark the code as used
+      verification.isUsed = true;
+      await verification.save();
+    } else {
+      // First check if there's an unexpired and unused code already (prevent request spam)
+      const existingCode = await VerificationCodeModel.findOne({
+        email,
+        isUsed: false,
+        createdAt: { $gt: new Date(Date.now() - 5 * 60 * 1000) }, // Less than 5 minutes old
+      });
+
+      if (existingCode) {
+        // Calculate time remaining before a new code can be requested
+        const expiryTime = new Date(existingCode.createdAt.getTime() + 5 * 60 * 1000);
+        const now = new Date();
+        const diffMs = expiryTime - now;
+        
+        if (diffMs > 0) {
+          const diffSecs = Math.floor(diffMs / 1000);
+          const minutes = Math.floor(diffSecs / 60);
+          const seconds = diffSecs % 60;
+          
+          return res.status(429).json({
+            error: 'A verification code has already been sent',
+            timeRemaining: { minutes, seconds },
+            message: `Please wait ${minutes}m ${seconds}s before requesting a new code`,
+          });
+        }
+      }
+
+      // If no verification code provided, send one
+      // Generate a purely numeric 6-digit code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // Save the code
+      const newVerificationCode = new VerificationCodeModel({
+        email,
+        code,
+      });
+      
+      await newVerificationCode.save();
+      
+      // Send the code via email
+      await sendVerificationEmail(email, code);
+      
+      return res.status(200).json({
+        success: true,
+        message: 'Verification code sent',
+        requiresVerification: true,
+      });
+    }
+
     // Create token
     const timestamp = Math.floor(Date.now() / 1000);
     const token = jwt.encode({
@@ -148,19 +252,18 @@ export const login = async (req, res) => {
     }, JWT_SECRET);
 
     console.log('Login successful for user:', email);
-
-    // Return user info and token
     return res.json({
+      success: true,
       token,
       user: {
         uid: user.uid,
         name: user.name,
         email: user.email,
         role: user.role,
-      },
+      }
     });
   } catch (error) {
-    console.error('Login error:', error.message);
+    console.error('Login error:', error);
     return res.status(500).json({ error: error.message });
   }
 };

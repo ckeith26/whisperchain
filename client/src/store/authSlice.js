@@ -12,6 +12,8 @@ const authSlice = (set, get) => ({
   initialized: false,
   authenticated: false,
   colorMode: localStorage.getItem("colorMode") || "light",
+  authLoading: false,
+  authError: null,
 
   // Set color mode
   setColorMode: (mode) => {
@@ -113,54 +115,152 @@ const authSlice = (set, get) => ({
   },
 
   // Login user
-  login: async (credentials) => {
+  login: async ({ email, password, verificationCode }) => {
+    set((state) => {
+      state.authSlice.authLoading = true;
+      state.authSlice.authError = null;
+    });
+
     try {
-      const response = await api.post(`/auth/login`, credentials);
-      const { token, user } = response.data;
+      const response = await api.post('/auth/login', { email, password, verificationCode });
+      console.log('Login response:', response.data);
+      
+      // If verification is required, return without setting auth state
+      if (response.data.requiresVerification) {
+        set((state) => {
+          state.authSlice.authLoading = false;
+        });
+        return { 
+          success: true, 
+          requiresVerification: true, 
+          message: response.data.message 
+        };
+      }
 
-      localStorage.setItem("token", token);
-
+      // Only set auth state if verification is complete and login successful
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        set((state) => {
+          state.authSlice.token = response.data.token;
+          state.authSlice.user = response.data.user;
+          state.authSlice.authenticated = true;
+          state.authSlice.authLoading = false;
+          // Reset any error state
+          state.authSlice.authError = null;
+        });
+        
+        return { success: true };
+      }
+      
       set((state) => {
-        state.authSlice.token = token;
-        state.authSlice.user = user;
-        state.authSlice.authenticated = true;
+        state.authSlice.authLoading = false;
+        state.authSlice.authError = 'Authentication failed';
       });
-
-      // Check if the user is an admin and include this information in the response
-      const isUserAdmin = user.role === "admin";
-
-      return { success: true, isAdmin: isUserAdmin };
+      
+      return { success: false, error: 'Authentication failed' };
     } catch (error) {
-      console.error("Login error:", error);
-      const message =
-        error.response?.data?.error || "Login failed. Please try again.";
-      toast.error(message);
-      return { success: false, message };
+      console.error('Login error:', error);
+      const errorMessage = error.response?.data?.error || 'Login failed';
+      
+      // Handle rate limiting errors
+      if (error.response?.status === 429) {
+        const timeRemaining = error.response?.data?.timeRemaining;
+        const waitMessage = error.response?.data?.message || 'Please wait before requesting another code';
+        
+        set((state) => {
+          state.authSlice.authLoading = false;
+          state.authSlice.authError = waitMessage;
+        });
+        
+        return { 
+          success: false, 
+          error: waitMessage,
+          timeRemaining,
+          requiresVerification: true
+        };
+      }
+      
+      set((state) => {
+        state.authSlice.authLoading = false;
+        state.authSlice.authError = errorMessage;
+      });
+      
+      return { success: false, error: errorMessage };
     }
   },
 
   // Register new user
-  register: async (userData) => {
+  register: async ({ email, password, name, role, verificationCode }) => {
+    set((state) => {
+      state.authSlice.authLoading = true;
+      state.authSlice.authError = null;
+    });
+
     try {
-      const response = await api.post(`/auth/register`, userData);
-      const { token, user } = response.data;
+      const response = await api.post('/auth/register', { email, password, name, role, verificationCode });
+      console.log('Register response:', response.data);
+      
+      // If verification is required, return without setting auth state
+      if (response.data.requiresVerification) {
+        set((state) => {
+          state.authSlice.authLoading = false;
+        });
+        return { 
+          success: true, 
+          requiresVerification: true, 
+          message: response.data.message 
+        };
+      }
 
-      localStorage.setItem("token", token);
-
+      // Only set auth state if verification is complete and registration successful
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        set((state) => {
+          state.authSlice.token = response.data.token;
+          state.authSlice.user = response.data.user;
+          state.authSlice.authenticated = true;
+          state.authSlice.authLoading = false;
+          // Reset any error state
+          state.authSlice.authError = null;
+        });
+        
+        return { success: true };
+      }
+      
       set((state) => {
-        state.authSlice.token = token;
-        state.authSlice.user = user;
-        state.authSlice.authenticated = true;
+        state.authSlice.authLoading = false;
+        state.authSlice.authError = 'Registration failed';
       });
-
-      toast.success("Registration successful!");
-      return { success: true };
+      
+      return { success: false, error: 'Registration failed' };
     } catch (error) {
-      console.error("Registration error:", error);
-      const message =
-        error.response?.data?.error || "Registration failed. Please try again.";
-      toast.error(message);
-      return { success: false, message };
+      console.error('Register error:', error);
+      const errorMessage = error.response?.data?.error || 'Registration failed';
+      
+      // Handle rate limiting errors
+      if (error.response?.status === 429) {
+        const timeRemaining = error.response?.data?.timeRemaining;
+        const waitMessage = error.response?.data?.message || 'Please wait before requesting another code';
+        
+        set((state) => {
+          state.authSlice.authLoading = false;
+          state.authSlice.authError = waitMessage;
+        });
+        
+        return { 
+          success: false, 
+          error: waitMessage,
+          timeRemaining,
+          requiresVerification: true
+        };
+      }
+      
+      set((state) => {
+        state.authSlice.authLoading = false;
+        state.authSlice.authError = errorMessage;
+      });
+      
+      return { success: false, error: errorMessage };
     }
   },
 

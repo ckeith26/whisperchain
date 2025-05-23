@@ -359,6 +359,10 @@ const Home = () => {
       setOpenSignIn(false);
       setOpenSignUp(false);
       setOpenForgotPassword(true);
+    } else if (action === 'verify') {
+      setOpenSignUp(false);
+      setOpenForgotPassword(false);
+      setOpenSignIn(true);
     }
   }, [searchParams, authenticated]);
 
