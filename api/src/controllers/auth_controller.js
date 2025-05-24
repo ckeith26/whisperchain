@@ -306,7 +306,7 @@ export const login = async (req, res) => {
 
       // If no verification code provided, send one
       // Generate a purely numeric 6-digit code
-      const code = Math.floor(Math.random() * 999999).toString();
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
 
       // Save the code
       const newVerificationCode = new VerificationCodeModel({
