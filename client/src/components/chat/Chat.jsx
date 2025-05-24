@@ -36,6 +36,7 @@ import useStore from "../../store";
 import { useNavigate, useLocation } from "react-router-dom";
 import AppAppBar from "../shared-components/AppAppBar/AppAppBar";
 import { encryptMessage, decryptMessage } from "../../utils/crypto";
+import { toast } from "react-toastify";
 
 const Chat = ({ view }) => {
   const navigate = useNavigate();
@@ -300,21 +301,23 @@ const Chat = ({ view }) => {
       return;
     }
 
-      setError("");
+    setError("");
     setSending(true);
 
     try {
       // Find selected user and get their public key
       const selectedUser = users.find((u) => u.uid === recipient);
-      
+
       if (!selectedUser) {
         setError("Selected user not found");
         setSending(false);
         return;
       }
 
-      if (selectedUser.publicKey === 'No public key available') {
-        setError("Selected user does not have a public key yet. They cannot receive encrypted messages.");
+      if (selectedUser.publicKey === "No public key available") {
+        setError(
+          "Selected user does not have a public key yet. They cannot receive encrypted messages."
+        );
         setSending(false);
         return;
       }
@@ -332,8 +335,8 @@ const Chat = ({ view }) => {
       });
 
       if (result.success) {
-      setNewMessage("");
-      setRecipient("");
+        setNewMessage("");
+        setRecipient("");
       }
     } catch (err) {
       console.error("Error sending message:", err);
@@ -345,9 +348,13 @@ const Chat = ({ view }) => {
 
   const handleFlagMessage = async (messageId) => {
     try {
-      await flagMessage(messageId);
+      const result = await flagMessage(messageId);
+      if (!result.success) {
+        toast.error(result.message || "Failed to flag message");
+      }
     } catch (err) {
       console.error("Error flagging message:", err);
+      toast.error(err.message || "Failed to flag message");
     }
   };
 
@@ -363,7 +370,7 @@ const Chat = ({ view }) => {
   };
 
   const renderUserList = () => (
-    <List ref={usersListRef} sx={{ height: 'auto', maxHeight: 400 }}>
+    <List ref={usersListRef} sx={{ height: "auto", maxHeight: 400 }}>
       {users.map((user) => (
         <ListItem
           key={user.uid}
@@ -382,7 +389,9 @@ const Chat = ({ view }) => {
         >
           <ListItemText
             primary={
-              <Typography sx={{ color: "white" }}>{user.email || user.keyId}</Typography>
+              <Typography sx={{ color: "white" }}>
+                {user.email || user.keyId}
+              </Typography>
             }
             secondary={
               <Typography
@@ -394,7 +403,7 @@ const Chat = ({ view }) => {
                   wordBreak: "break-all",
                 }}
               >
-                {user.publicKey && user.publicKey !== 'No public key available' 
+                {user.publicKey && user.publicKey !== "No public key available"
                   ? `${user.publicKey.substring(0, 20)}...`
                   : "No public key available"}
               </Typography>
@@ -1072,13 +1081,15 @@ const Chat = ({ view }) => {
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position="start">
-                              <SearchIcon sx={{ color: "rgba(255,255,255,0.5)" }} />
+                              <SearchIcon
+                                sx={{ color: "rgba(255,255,255,0.5)" }}
+                              />
                             </InputAdornment>
                           ),
                           endAdornment: searchQuery ? (
                             <InputAdornment position="end">
-                              <IconButton 
-                                size="small" 
+                              <IconButton
+                                size="small"
                                 onClick={clearSearch}
                                 sx={{ color: "rgba(255,255,255,0.5)" }}
                               >
@@ -1090,14 +1101,18 @@ const Chat = ({ view }) => {
                             color: "white",
                             borderRadius: 1,
                             bgcolor: "rgba(255,255,255,0.02)",
-                          }
+                          },
                         }}
                         sx={{
                           mb: 2,
                           "& .MuiOutlinedInput-root": {
                             borderColor: "rgba(255,255,255,0.1)",
-                            "&:hover fieldset": { borderColor: "rgba(255,255,255,0.2)" },
-                            "&.Mui-focused fieldset": { borderColor: "primary.main" },
+                            "&:hover fieldset": {
+                              borderColor: "rgba(255,255,255,0.2)",
+                            },
+                            "&.Mui-focused fieldset": {
+                              borderColor: "primary.main",
+                            },
                           },
                         }}
                       />
