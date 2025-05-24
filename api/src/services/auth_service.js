@@ -11,27 +11,27 @@ const JWT_SECRET = process.env.JWT_SECRET || 'whisperchain_secure_fallback_key';
 export const requireAuth = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader) {
       return res.status(401).json({ error: 'No authentication token provided' });
     }
 
     const token = authHeader.split(' ')[1];
-    
+
     if (!token) {
       return res.status(401).json({ error: 'Invalid authentication format. Use Bearer {token}' });
     }
 
     try {
       const decodedToken = jwt.decode(token, JWT_SECRET);
-      
+
       if (!decodedToken || !decodedToken.sub) {
         return res.status(401).json({ error: 'Invalid token format' });
       }
-      
+
       // For all users including admins, verify they exist in the users collection
       const user = await UserModel.findOne({ uid: decodedToken.sub });
-      
+
       if (!user) {
         return res.status(401).json({ error: 'User not found' });
       }
@@ -92,4 +92,4 @@ export const requireModerator = (req, res, next) => {
   }
 
   next();
-}; 
+};

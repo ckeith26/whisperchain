@@ -1,7 +1,6 @@
 import jwt from 'jwt-simple';
 import dotenv from 'dotenv';
 import { nanoid } from 'nanoid';
-import bcrypt from 'bcryptjs';
 import UserModel, { ROLES } from '../models/user_model';
 import AuditLogModel, { ACTION_TYPES } from '../models/audit_log_model';
 import VerificationCodeModel from '../models/verification_code_model';
@@ -52,16 +51,43 @@ export const register = async (req, res) => {
       await verification.save();
     } else {
       // If no verification code provided, send one
+      // First check if there's an unexpired and unused code already (prevent request spam)
+      const existingCode = await VerificationCodeModel.findOne({
+        email,
+        isUsed: false,
+        createdAt: { $gt: new Date(Date.now() - 5 * 60 * 1000) }, // Less than 5 minutes old
+      });
+
+      if (existingCode) {
+        // Calculate time remaining before a new code can be requested
+        const expiryTime = new Date(existingCode.createdAt.getTime() + 5 * 60 * 1000);
+        const now = new Date();
+        const diffMs = expiryTime - now;
+        
+        if (diffMs > 0) {
+          const diffSecs = Math.floor(diffMs / 1000);
+          const minutes = Math.floor(diffSecs / 60);
+          const seconds = diffSecs % 60;
+          
+          return res.status(429).json({
+            error: 'A verification code has already been sent',
+            timeRemaining: { minutes, seconds },
+            message: `Please wait ${minutes}m ${seconds}s before requesting a new code`,
+            requiresVerification: true
+          });
+        }
+      }
+
       // Generate a purely numeric 6-digit code
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       
       // Save the code
-      const verificationCode = new VerificationCodeModel({
+      const newVerificationCode = new VerificationCodeModel({
         email,
         code,
       });
       
-      await verificationCode.save();
+      await newVerificationCode.save();
       
       // Send the code via email
       await sendVerificationEmail(email, code);

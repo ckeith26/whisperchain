@@ -87,6 +87,7 @@ const AppAppBar = ({
   const [loginPassword, setLoginPassword] = useState('');
   const [loginVerificationCode, setLoginVerificationCode] = useState('');
   const [loginVerificationSent, setLoginVerificationSent] = useState(false);
+  const [isRegistrationVerification, setIsRegistrationVerification] = useState(false);
   const [verificationCodeSentTime, setVerificationCodeSentTime] = useState(null);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [registerEmail, setRegisterEmail] = useState(emailInput || '');
@@ -154,14 +155,35 @@ const AppAppBar = ({
   // Check for verification state in URL
   useEffect(() => {
     const action = searchParams.get('action');
+    console.log('🌐 URL action changed to:', action);
+    
     if (action === 'verify') {
+      console.log('✅ Setting verification mode from URL');
       setLoginVerificationSent(true);
       // If we have a stored email for verification, use it
       const storedEmail = localStorage.getItem('verificationEmail');
       const storedTimestamp = localStorage.getItem('verificationCodeSentTime');
+      const isRegVerification = localStorage.getItem('isRegistrationVerification') === 'true';
+      const storedPassword = localStorage.getItem('registrationPassword');
+      const storedRole = localStorage.getItem('registrationRole');
       
       if (storedEmail) {
+        console.log('📧 Restored email from localStorage:', storedEmail);
         setLoginEmail(storedEmail);
+      }
+      
+      if (isRegVerification) {
+        console.log('📝 Restored registration verification mode');
+        setIsRegistrationVerification(true);
+        if (storedPassword) {
+          setLoginPassword(storedPassword);
+          setRegisterPassword(storedPassword);
+        }
+        if (storedRole) {
+          setRegisterRole(storedRole);
+        }
+      } else {
+        setIsRegistrationVerification(false);
       }
       
       if (storedTimestamp) {
@@ -176,12 +198,15 @@ const AppAppBar = ({
         if (remainingMs > 0) {
           // Set cooldown to remaining seconds
           setResendCooldown(Math.ceil(remainingMs / 1000));
+          console.log('⏰ Set cooldown to:', Math.ceil(remainingMs / 1000), 'seconds');
         } else {
           // Reset cooldown if expired
           setResendCooldown(0);
+          console.log('⏰ Cooldown expired, reset to 0');
         }
       }
     } else if (action !== 'signin' && action !== 'login') {
+      console.log('❌ Clearing verification state for action:', action);
       setLoginVerificationSent(false);
       // Clear stored verification email when not in verification flow
       localStorage.removeItem('verificationEmail');
@@ -223,13 +248,28 @@ const AppAppBar = ({
         return;
       }
       
-      const response = await login({ 
-        email: loginEmail, 
-        password: loginPassword,
-        verificationCode: loginVerificationSent ? loginVerificationCode : undefined
-      });
+      let response;
       
-      console.log('Login response:', response);
+      if (isRegistrationVerification) {
+        console.log('📝 Calling REGISTER endpoint for verification');
+        // We're completing a registration with verification code
+        response = await register({
+          email: loginEmail,
+          password: loginPassword,
+          role: registerRole,
+          verificationCode: loginVerificationCode
+        });
+      } else {
+        console.log('🔑 Calling LOGIN endpoint for verification');
+        // We're doing normal login with verification code
+        response = await login({ 
+          email: loginEmail, 
+          password: loginPassword,
+          verificationCode: loginVerificationSent ? loginVerificationCode : undefined
+        });
+      }
+      
+      console.log('Server response:', response);
       
       // If verification is required (either successful initial request or error response)
       if (response.requiresVerification) {
@@ -270,9 +310,14 @@ const AppAppBar = ({
       }
       
       if (response.success) {
-        // Clear stored email and timestamp on successful login
+        // Clear stored email and timestamp on successful login/registration
         localStorage.removeItem('verificationEmail');
         localStorage.removeItem('verificationCodeSentTime');
+        localStorage.removeItem('isRegistrationVerification');
+        localStorage.removeItem('registrationPassword');
+        localStorage.removeItem('registrationRole');
+        
+        const successMessage = isRegistrationVerification ? 'Registration successful!' : 'Login successful';
         
         // Add a small delay before closing dialog to ensure state updates
         setTimeout(() => {
@@ -281,14 +326,27 @@ const AppAppBar = ({
           setLoginPassword('');
           setLoginVerificationCode('');
           setLoginVerificationSent(false);
+          setIsRegistrationVerification(false);
           setVerificationCodeSentTime(null);
           setResendCooldown(0);
           
-          // Redirect to admin page if user is an admin
-          if (response.isAdmin) {
+          // Clear registration form as well if this was registration verification
+          if (isRegistrationVerification) {
+            setRegisterEmail('');
+            setRegisterPassword('');
+            setRegisterRole('user');
+          }
+          
+          // Redirect based on the type of verification
+          if (isRegistrationVerification) {
+            // After successful registration, go to messages
+            navigate('/messages/inbox');
+          } else if (response.isAdmin) {
+            // After successful login as admin, go to admin panel
             navigate('/admin');
           }
-          toast.success('Login successful');
+          
+          toast.success(successMessage);
         }, 100);
       } else {
         toast.error(response.error || 'Login failed');
@@ -365,26 +423,111 @@ const AppAppBar = ({
       const response = await register({
         email: registerEmail,
         password: registerPassword,
-        role: registerRole
+        role: registerRole,
+        verificationCode: loginVerificationCode // Use the same verification code state
       });
       
       if (response.success) {
-        toast.success('Registration successful!');
-        // Add a small delay before closing dialog to ensure state updates
-        setTimeout(() => {
-          effectiveHandleCloseSignUp();
-          setRegisterEmail('');
-          setRegisterPassword('');
+        // Check if verification is required
+        if (response.requiresVerification) {
+          console.log('🚀 Sign-up requires verification - setting up verification flow');
+          toast.success(response.message || 'Verification code sent to your email');
           
-          // Redirect to messages page after successful registration
-          navigate('/messages/inbox');
-        }, 100);
+          // Set up verification state - reuse the same state variables as sign-in
+          setLoginEmail(registerEmail); // Store email for verification
+          setLoginPassword(registerPassword); // Store password for registration completion
+          setLoginVerificationSent(true);
+          setIsRegistrationVerification(true); // Mark this as registration verification
+          setLoginVerificationCode('');
+          
+          console.log('📧 Setting login email to:', registerEmail);
+          console.log('🔐 Setting verification sent to: true');
+          console.log('📝 Setting registration verification mode: true');
+          
+          // Set 5-minute cooldown
+          const currentTime = Date.now();
+          setVerificationCodeSentTime(currentTime);
+          setResendCooldown(300); // 5 minutes in seconds
+          
+          // Store in localStorage for persistence
+          localStorage.setItem('verificationEmail', registerEmail);
+          localStorage.setItem('verificationCodeSentTime', currentTime.toString());
+          localStorage.setItem('isRegistrationVerification', 'true');
+          localStorage.setItem('registrationPassword', registerPassword);
+          localStorage.setItem('registrationRole', registerRole);
+          
+          // Update URL to verification mode FIRST
+          navigate('/?action=verify', { replace: true });
+          console.log('🌐 URL updated to verification mode');
+          
+          // Close sign-up dialog immediately and open sign-in in verification mode
+          effectiveSetOpenSignUp(false);
+          effectiveSetOpenSignIn(true);
+          console.log('🔄 Closed sign-up modal, opened sign-in modal');
+          
+        } else {
+          // Registration completed successfully
+          toast.success('Registration successful!');
+          setTimeout(() => {
+            effectiveHandleCloseSignUp();
+            setRegisterEmail('');
+            setRegisterPassword('');
+            
+            // Redirect to messages page after successful registration
+            navigate('/messages/inbox');
+          }, 100);
+        }
       } else if (response.error) {
         toast.error(response.error);
       }
     } catch (error) {
       console.error('Registration error:', error);
-      toast.error(error.response?.data?.error || error.message || 'Registration failed');
+      
+      // Handle rate limiting errors (if user tries to register again too quickly)
+      if (error.response?.status === 429) {
+        // Extract time remaining from server response
+        const { timeRemaining } = error.response.data;
+        
+        if (timeRemaining) {
+          const totalSeconds = (timeRemaining.minutes * 60) + timeRemaining.seconds;
+          
+          // Set the cooldown directly from server time
+          setResendCooldown(totalSeconds);
+          
+          // Calculate expiry time and store it for persistence
+          const currentTime = Date.now();
+          const expiryTime = currentTime + (totalSeconds * 1000);
+          setVerificationCodeSentTime(expiryTime - (5 * 60 * 1000));
+          localStorage.setItem('verificationCodeSentTime', (expiryTime - (5 * 60 * 1000)).toString());
+        } else {
+          // Fallback if server doesn't provide time remaining
+          setResendCooldown(300);
+          const currentTime = Date.now();
+          setVerificationCodeSentTime(currentTime);
+          localStorage.setItem('verificationCodeSentTime', currentTime.toString());
+        }
+        
+        // Set up verification state
+        setLoginEmail(registerEmail);
+        setLoginVerificationSent(true);
+        
+        // Make sure URL indicates verification state
+        navigate('/?action=verify', { replace: true });
+        
+        // Store email for verification in case of page refresh
+        if (registerEmail) {
+          localStorage.setItem('verificationEmail', registerEmail);
+        }
+        
+        // Close sign-up and open sign-in in verification mode immediately
+        effectiveSetOpenSignUp(false);
+        effectiveSetOpenSignIn(true);
+        
+        // Show the error message from server
+        toast.error(error.response.data.message || `Please wait before requesting a new code`);
+      } else {
+        toast.error(error.response?.data?.error || error.message || 'Registration failed');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -416,12 +559,16 @@ const AppAppBar = ({
   const defaultHandleCloseSignIn = () => {
     effectiveSetOpenSignIn(false);
     setLoginVerificationSent(false);
+    setIsRegistrationVerification(false);
     setLoginVerificationCode('');
     setVerificationCodeSentTime(null);
     setResendCooldown(0);
     // Clear stored verification email when closing dialog
     localStorage.removeItem('verificationEmail');
     localStorage.removeItem('verificationCodeSentTime');
+    localStorage.removeItem('isRegistrationVerification');
+    localStorage.removeItem('registrationPassword');
+    localStorage.removeItem('registrationRole');
     navigate('/', { replace: true });
   };
   
@@ -877,6 +1024,16 @@ const AppAppBar = ({
             backgroundColor: 'rgba(10, 25, 47, 0.7)'
           }
         }}
+        onExited={() => {
+          console.log('🚪 Sign-in dialog closed');
+        }}
+        TransitionProps={{
+          onEntered: () => {
+            console.log('🔑 Sign-in dialog opened, verification state:', loginVerificationSent);
+            console.log('📧 Login email:', loginEmail);
+            console.log('🔐 Verification code:', loginVerificationCode);
+          }
+        }}
       >
         <Box sx={{ 
           display: 'flex', 
@@ -904,7 +1061,9 @@ const AppAppBar = ({
           textAlign: 'center',
           pb: 0
         }}>
-          {loginVerificationSent ? 'Enter Verification Code' : 'Sign In to Your Account'}
+          {loginVerificationSent ? 
+            (isRegistrationVerification ? 'Complete Your Registration' : 'Enter Verification Code') : 
+            'Sign In to Your Account'}
           {/* Hide close button when in verification mode */}
           {!loginVerificationSent && (
             <IconButton
@@ -1078,7 +1237,9 @@ const AppAppBar = ({
               sx={{ borderRadius: '8px', mb: 2 }}
             >
               {isSubmitting ? <CircularProgress size={24} color="inherit" /> : 
-                loginVerificationSent ? 'Verify & Sign In' : 'Sign In'}
+                loginVerificationSent ? 
+                  (isRegistrationVerification ? 'Complete Registration' : 'Verify & Sign In') : 
+                  'Sign In'}
             </Button>
           </Box>
         </DialogContent>
