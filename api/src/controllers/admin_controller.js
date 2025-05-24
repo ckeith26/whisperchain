@@ -160,7 +160,12 @@ export const toggleUserSuspension = async (req, res) => {
 // Get pending user registrations (users in IDLE state)
 export const getPendingUsers = async (req, res) => {
   try {
-    const pendingUsers = await UserModel.find({ role: ROLES.IDLE });
+    // Only get users who are idle AND have a requested role (meaning they're pending approval)
+    // This excludes existing users who were made idle by admin
+    const pendingUsers = await UserModel.find({ 
+      role: ROLES.IDLE,
+      requestedRole: { $exists: true, $ne: null }
+    });
 
     // Transform the response to include email and requested role
     const usersWithEmail = pendingUsers.map((user) => ({
@@ -228,7 +233,10 @@ export const getDashboardStats = async (req, res) => {
     const regularUserCount = await UserModel.countDocuments({ role: ROLES.USER });
     const moderatorCount = await UserModel.countDocuments({ role: ROLES.MODERATOR });
     const suspendedUserCount = await UserModel.countDocuments({ isSuspended: true });
-    const pendingUserCount = await UserModel.countDocuments({ role: ROLES.IDLE }); // Count users awaiting approval
+    const pendingUserCount = await UserModel.countDocuments({ 
+      role: ROLES.IDLE, 
+      requestedRole: { $exists: true, $ne: null } 
+    }); // Count only users awaiting approval, not those made idle by admin
     const messageCount = await MessageModel.countDocuments({});
     const flaggedCount = await MessageModel.countDocuments({ 'isFlagged.status': true });
     
@@ -276,6 +284,11 @@ export const makeModeratorIdle = async (req, res) => {
 
     const previousRole = user.role;
     user.updateRole(ROLES.IDLE);
+    
+    // Clear requestedRole to ensure they don't appear in pending registrations
+    user.requestedRole = null;
+    user.requestedAt = null;
+    
     await user.save();
 
     // Log the action

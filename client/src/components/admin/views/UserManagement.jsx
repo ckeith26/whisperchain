@@ -317,7 +317,11 @@ const UserManagement = () => {
                     <TableCell sx={{ color: 'white' }}>{user.email}</TableCell>
                     <TableCell>
                       <Chip
-                        label={user.role}
+                        label={
+                          user.role === 'idle' 
+                            ? (user.requestedRole ? 'Pending Approval' : 'Paused by Admin')
+                            : user.role
+                        }
                         size="small"
                         color={
                           user.role === 'admin' 
@@ -325,9 +329,13 @@ const UserManagement = () => {
                             : user.role === 'moderator' 
                               ? 'warning' 
                               : user.role === 'idle'
-                                ? 'default'
+                                ? (user.requestedRole ? 'info' : 'default')
                                 : 'primary'
                         }
+                        sx={user.role === 'idle' && !user.requestedRole ? {
+                          bgcolor: 'rgba(255,255,255,0.2)',
+                          color: 'white'
+                        } : undefined}
                       />
                     </TableCell>
                     <TableCell>
@@ -375,7 +383,8 @@ const UserManagement = () => {
                           </Tooltip>
                         )}
                         
-                        {user.role === 'idle' && (
+                        {/* Only show reactivate button for idle users who were paused by admin (not pending approval) */}
+                        {user.role === 'idle' && !user.requestedRole && (
                           <Tooltip title="Reactivate moderator">
                             <IconButton 
                               size="small" 
