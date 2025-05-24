@@ -71,6 +71,21 @@ export const assignRole = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Only allow role assignment for idle users (pending approval)
+    // Existing users and moderators should use specific pause/play functions
+    if (user.role !== ROLES.IDLE) {
+      return res.status(403).json({ 
+        error: 'Role changes are only allowed for pending users. Use pause/play functions for existing users.',
+      });
+    }
+
+    // Ensure the user is actually pending approval (has requestedRole)
+    if (!user.requestedRole) {
+      return res.status(403).json({ 
+        error: 'This user is not pending approval. Cannot assign role.',
+      });
+    }
+
     user.updateRole(role);
     await user.save();
 

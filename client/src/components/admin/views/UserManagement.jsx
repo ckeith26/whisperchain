@@ -40,6 +40,15 @@ import useStore from '../../../store';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
+/**
+ * UserManagement Component
+ * 
+ * Simplified Role Management:
+ * - Users: No role changes allowed (roles are permanent)
+ * - Moderators: Can only be paused/reactivated (pause = make idle, play = reactivate)
+ * - Pending Users: Can be approved with roles through the approval process
+ * - Admins: Cannot be modified
+ */
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [pendingUsers, setPendingUsers] = useState([]);
@@ -102,6 +111,29 @@ const UserManagement = () => {
       toast.error("You cannot edit your own role");
       return;
     }
+    
+    // Prevent editing idle users through role dialog - they should use pause/reactivate buttons
+    if (user.role === 'idle') {
+      if (user.requestedRole) {
+        toast.info("This user is pending approval. Use the approval buttons in the Pending Registrations section.");
+      } else {
+        toast.info("This user has been paused. Use the reactivate button to restore their access.");
+      }
+      return;
+    }
+    
+    // Prevent editing users and moderators - only use pause/play functions
+    if (user.role === 'user') {
+      toast.info("User roles cannot be changed. Users must request role changes through the registration process.");
+      return;
+    }
+    
+    if (user.role === 'moderator') {
+      toast.info("Use the pause button to temporarily disable moderator access.");
+      return;
+    }
+    
+    // This should rarely be reached, but kept for safety
     setSelectedUser(user);
     setSelectedRole(user.role);
     setOpenDialog(true);
@@ -319,7 +351,7 @@ const UserManagement = () => {
                       <Chip
                         label={
                           user.role === 'idle' 
-                            ? (user.requestedRole ? 'Pending Approval' : 'Paused by Admin')
+                            ? (user.requestedRole ? 'Pending Approval' : 'Paused') 
                             : user.role
                         }
                         size="small"
@@ -329,7 +361,7 @@ const UserManagement = () => {
                             : user.role === 'moderator' 
                               ? 'warning' 
                               : user.role === 'idle'
-                                ? (user.requestedRole ? 'info' : 'default')
+                                ? (user.requestedRole ? 'warning' : 'error')
                                 : 'primary'
                         }
                         sx={user.role === 'idle' && !user.requestedRole ? {
@@ -340,9 +372,17 @@ const UserManagement = () => {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={user.status}
+                        label={
+                          user.role === 'idle' 
+                            ? (user.requestedRole ? 'Pending Approval' : 'Paused') 
+                            : user.status
+                        }
                         size="small"
-                        color={user.status === 'active' ? 'success' : 'error'}
+                        color={
+                          user.role === 'idle' 
+                            ? (user.requestedRole ? 'warning' : 'error')
+                            : user.status === 'active' ? 'success' : 'error'
+                        }
                       />
                     </TableCell>
                     <TableCell>
@@ -357,13 +397,28 @@ const UserManagement = () => {
                     </TableCell>
                     <TableCell>
                       <Box display="flex" justifyContent="center" width="100%" gap={1}>
-                        <Tooltip title={currentUser && currentUser.uid === user.uid ? "Cannot edit own role" : "Edit Role"}>
+                        <Tooltip title={
+                          currentUser && currentUser.uid === user.uid 
+                            ? "Cannot edit own role" 
+                            : user.role === 'idle' 
+                              ? (user.requestedRole ? "Use approval buttons for pending users" : "Use reactivate button for paused users")
+                              : user.role === 'moderator'
+                                ? "Use pause/play buttons for moderators"
+                                : user.role === 'user'
+                                  ? "User roles cannot be changed"
+                                  : "Edit Role"
+                        }>
                           <span>
                             <IconButton 
                               size="small" 
                               onClick={() => handleEditUser(user)}
                               sx={{ color: 'primary.main' }}
-                              disabled={currentUser && currentUser.uid === user.uid}
+                              disabled={
+                                (currentUser && currentUser.uid === user.uid) || 
+                                user.role === 'idle' || 
+                                user.role === 'user' || 
+                                user.role === 'moderator'
+                              }
                             >
                               <EditIcon fontSize="small" />
                             </IconButton>
@@ -525,7 +580,9 @@ const UserManagement = () => {
           }
         }}
       >
-        <DialogTitle sx={{ fontSize: '1.5rem', pb: 2 }}>Change User Role</DialogTitle>
+        <DialogTitle sx={{ fontSize: '1.5rem', pb: 2 }}>
+          Change User Role
+        </DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           <DialogContentText sx={{ fontSize: '1.1rem', mb: 3 }}>
             Change the role for {selectedUser?.name || selectedUser?.email || 'User'}
@@ -541,7 +598,6 @@ const UserManagement = () => {
             >
               <MenuItem value="moderator">Moderator</MenuItem>
               <MenuItem value="user">Regular User</MenuItem>
-              <MenuItem value="idle">Idle (Cannot Login)</MenuItem>
             </Select>
           </FormControl>
         </DialogContent>
