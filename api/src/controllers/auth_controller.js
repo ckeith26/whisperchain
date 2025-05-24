@@ -152,6 +152,20 @@ export const login = async (req, res) => {
       passwordLength: user.password?.length 
     });
 
+    // Check if account is currently locked
+    if (user.isAccountLocked()) {
+      const lockoutTimeRemaining = Math.ceil((user.accountLockedUntil - new Date()) / 1000);
+      const minutes = Math.floor(lockoutTimeRemaining / 60);
+      const seconds = lockoutTimeRemaining % 60;
+      
+      console.log('Account is locked:', email);
+      return res.status(423).json({ 
+        error: `Account is temporarily locked due to too many failed login attempts. Please try again in ${minutes}m ${seconds}s.`,
+        accountLocked: true,
+        timeRemaining: { minutes, seconds }
+      });
+    }
+
     // Check if user is suspended
     if (user.isSuspended) {
       console.log('User is suspended:', email);
@@ -171,8 +185,26 @@ export const login = async (req, res) => {
       console.log('Password comparison result:', isMatch);
       
       if (!isMatch) {
-        return res.status(401).json({ error: 'Invalid credentials' });
+        // Increment failed login attempts
+        await user.incrementFailedAttempts();
+        
+        const attemptsRemaining = 5 - user.failedLoginAttempts;
+        if (attemptsRemaining <= 0) {
+          return res.status(423).json({ 
+            error: 'Account has been temporarily locked due to too many failed login attempts. Please try again in 5 minutes.',
+            accountLocked: true
+          });
+        } else {
+          return res.status(401).json({ 
+            error: `Invalid credentials. ${attemptsRemaining} attempt${attemptsRemaining === 1 ? '' : 's'} remaining before account lockout.`,
+            attemptsRemaining
+          });
+        }
       }
+      
+      // Reset failed login attempts on successful password verification
+      await user.resetFailedAttempts();
+      
     } catch (compareError) {
       console.error('Error during password comparison:', compareError.message);
       return res.status(500).json({ error: 'Error comparing passwords: ' + compareError.message });

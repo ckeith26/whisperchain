@@ -162,6 +162,24 @@ const authSlice = (set, get) => ({
       console.error('Login error:', error);
       const errorMessage = error.response?.data?.error || 'Login failed';
       
+      // Handle account lockout errors
+      if (error.response?.status === 423) {
+        const lockoutMessage = error.response?.data?.error || 'Account is temporarily locked';
+        const timeRemaining = error.response?.data?.timeRemaining;
+        
+        set((state) => {
+          state.authSlice.authLoading = false;
+          state.authSlice.authError = lockoutMessage;
+        });
+        
+        return { 
+          success: false, 
+          error: lockoutMessage,
+          accountLocked: true,
+          timeRemaining
+        };
+      }
+      
       // Handle rate limiting errors
       if (error.response?.status === 429) {
         const timeRemaining = error.response?.data?.timeRemaining;

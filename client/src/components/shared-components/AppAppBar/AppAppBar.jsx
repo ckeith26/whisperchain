@@ -144,6 +144,13 @@ const AppAppBar = ({
     return () => clearTimeout(timer);
   }, [verificationCodeSentTime, resendCooldown]);
   
+  // Effect to sync registerEmail with emailInput prop
+  useEffect(() => {
+    if (emailInput) {
+      setRegisterEmail(emailInput);
+    }
+  }, [emailInput]);
+  
   // Check for verification state in URL
   useEffect(() => {
     const action = searchParams.get('action');
