@@ -180,6 +180,22 @@ const authSlice = (set, get) => ({
         };
       }
       
+      // Handle pending account status
+      if (error.response?.status === 403 && error.response?.data?.accountPending) {
+        const pendingMessage = error.response?.data?.error || 'Account is pending approval';
+        
+        set((state) => {
+          state.authSlice.authLoading = false;
+          state.authSlice.authError = pendingMessage;
+        });
+        
+        return { 
+          success: false, 
+          error: pendingMessage,
+          accountPending: true
+        };
+      }
+      
       // Handle rate limiting errors
       if (error.response?.status === 429) {
         const timeRemaining = error.response?.data?.timeRemaining;
@@ -230,6 +246,19 @@ const authSlice = (set, get) => ({
         };
       }
 
+      // If moderator approval is required, return success with approval message
+      if (response.data.requiresApproval) {
+        set((state) => {
+          state.authSlice.authLoading = false;
+        });
+        return { 
+          success: true, 
+          requiresApproval: true, 
+          message: response.data.message,
+          requestedRole: response.data.requestedRole
+        };
+      }
+
       // Only set auth state if verification is complete and registration successful
       if (response.data.token) {
         localStorage.setItem('token', response.data.token);
@@ -253,32 +282,22 @@ const authSlice = (set, get) => ({
       return { success: false, error: 'Registration failed' };
     } catch (error) {
       console.error('Register error:', error);
-      const errorMessage = error.response?.data?.error || 'Registration failed';
       
-      // Handle rate limiting errors
-      if (error.response?.status === 429) {
-        const timeRemaining = error.response?.data?.timeRemaining;
-        const waitMessage = error.response?.data?.message || 'Please wait before requesting another code';
-        
+      if (error.response) {
+        const errorData = error.response.data;
         set((state) => {
           state.authSlice.authLoading = false;
-          state.authSlice.authError = waitMessage;
+          state.authSlice.authError = errorData.error || 'Registration failed';
         });
-        
-        return { 
-          success: false, 
-          error: waitMessage,
-          timeRemaining,
-          requiresVerification: true
-        };
+        return { success: false, error: errorData.error };
       }
       
       set((state) => {
         state.authSlice.authLoading = false;
-        state.authSlice.authError = errorMessage;
+        state.authSlice.authError = error.message || 'Registration failed';
       });
       
-      return { success: false, error: errorMessage };
+      return { success: false, error: error.message || 'Registration failed' };
     }
   },
 

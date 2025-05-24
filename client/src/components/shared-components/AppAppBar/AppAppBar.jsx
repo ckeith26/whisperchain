@@ -465,6 +465,22 @@ const AppAppBar = ({
           effectiveSetOpenSignIn(true);
           console.log('🔄 Closed sign-up modal, opened sign-in modal');
           
+        } else if (response.requiresApproval) {
+          // User request requires admin approval
+          console.log('🔐 User registration pending approval');
+          toast.success(response.message || 'Your account is awaiting admin approval. Please check back later.');
+          
+          // Close the sign-up dialog and redirect to home
+          setTimeout(() => {
+            effectiveHandleCloseSignUp();
+            setRegisterEmail('');
+            setRegisterPassword('');
+            setRegisterRole('user');
+            
+            // Redirect to home page
+            navigate('/');
+          }, 2000); // Give time for user to read the message
+          
         } else {
           // Registration completed successfully
           toast.success('Registration successful!');

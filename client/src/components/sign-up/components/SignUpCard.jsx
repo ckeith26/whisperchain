@@ -140,6 +140,17 @@ export default function SignUpCard() {
         return;
       }
 
+      if (result.requiresApproval) {
+        console.log("SignUpCard - User registration pending approval");
+        toast.success(result.message || 'Your account is awaiting admin approval. Please check back later.');
+        setLoading(false);
+        // Redirect to home page after showing the message
+        setTimeout(() => {
+          navigate("/");
+        }, 2000);
+        return;
+      }
+
       if (result.success) {
         navigate("/chat");
       } else {
@@ -235,6 +246,7 @@ export default function SignUpCard() {
               >
                 <MenuItem value="recipient">Recipient</MenuItem>
                 <MenuItem value="user">User</MenuItem>
+                <MenuItem value="moderator">Moderator</MenuItem>
               </Select>
             </FormControl>
           </>

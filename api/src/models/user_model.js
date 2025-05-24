@@ -71,6 +71,14 @@ const UserSchema = new Schema(
     ],
     isSuspended: { type: Boolean, default: false },
     
+    // Moderation request system
+    requestedRole: { 
+      type: String, 
+      enum: Object.values(ROLES), 
+      default: null 
+    },
+    requestedAt: { type: Date, default: null },
+    
     // Login attempt tracking and lockout
     failedLoginAttempts: { type: Number, default: 0 },
     accountLockedUntil: { type: Date, default: null },
