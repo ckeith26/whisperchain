@@ -8,7 +8,7 @@ const API_URL = import.meta.env.VITE_API_URL;
 // Create axios instance with default config
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 55000, // 60 seconds timeout
+  timeout: 55000, // 55 seconds timeout
 });
 
 // Flag to prevent multiple logout calls

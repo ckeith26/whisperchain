@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { styled, alpha } from '@mui/material/styles';
 import {
   AppBar,
@@ -29,7 +29,8 @@ import {
   Badge
 } from '@mui/material';
 import useStore from '../../../store';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import HomeIcon from '@mui/icons-material/Home';
@@ -75,6 +76,7 @@ const AppAppBar = ({
 } = {}) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { authenticated, user, login, register, logout } = useStore(state => state.authSlice);
   const { unreadMessageCount, flaggedMessageCount } = useStore(state => state.userSlice);
   const [open, setOpen] = useState(false);
@@ -83,6 +85,10 @@ const AppAppBar = ({
   // Form state
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [loginVerificationCode, setLoginVerificationCode] = useState('');
+  const [loginVerificationSent, setLoginVerificationSent] = useState(false);
+  const [verificationCodeSentTime, setVerificationCodeSentTime] = useState(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [registerEmail, setRegisterEmail] = useState(emailInput || '');
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerRole, setRegisterRole] = useState(role || 'user');
@@ -115,32 +121,225 @@ const AppAppBar = ({
   
   const effectiveEmail = emailInput || registerEmail;
   
+  // Effect for cooldown timer
+  useEffect(() => {
+    let timer;
+    if (verificationCodeSentTime && resendCooldown > 0) {
+      timer = setTimeout(() => {
+        // Calculate remaining time based on stored timestamp
+        const currentTime = Date.now();
+        const expiryTime = verificationCodeSentTime + (5 * 60 * 1000); // 5 minutes from sent time
+        const remainingMs = expiryTime - currentTime;
+        
+        if (remainingMs > 0) {
+          // Update cooldown every second
+          const remainingSecs = Math.ceil(remainingMs / 1000);
+          setResendCooldown(remainingSecs);
+        } else {
+          // Reset cooldown when time expires
+          setResendCooldown(0);
+        }
+      }, 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [verificationCodeSentTime, resendCooldown]);
+  
+  // Effect to sync registerEmail with emailInput prop
+  useEffect(() => {
+    if (emailInput) {
+      setRegisterEmail(emailInput);
+    }
+  }, [emailInput]);
+  
+  // Check for verification state in URL
+  useEffect(() => {
+    const action = searchParams.get('action');
+    if (action === 'verify') {
+      setLoginVerificationSent(true);
+      // If we have a stored email for verification, use it
+      const storedEmail = localStorage.getItem('verificationEmail');
+      const storedTimestamp = localStorage.getItem('verificationCodeSentTime');
+      
+      if (storedEmail) {
+        setLoginEmail(storedEmail);
+      }
+      
+      if (storedTimestamp) {
+        const sentTime = parseInt(storedTimestamp, 10);
+        setVerificationCodeSentTime(sentTime);
+        
+        // Calculate remaining time based on expiry (5 mins after sent time)
+        const currentTime = Date.now();
+        const expiryTime = sentTime + (5 * 60 * 1000);
+        const remainingMs = expiryTime - currentTime;
+        
+        if (remainingMs > 0) {
+          // Set cooldown to remaining seconds
+          setResendCooldown(Math.ceil(remainingMs / 1000));
+        } else {
+          // Reset cooldown if expired
+          setResendCooldown(0);
+        }
+      }
+    } else if (action !== 'signin' && action !== 'login') {
+      setLoginVerificationSent(false);
+      // Clear stored verification email when not in verification flow
+      localStorage.removeItem('verificationEmail');
+      localStorage.removeItem('verificationCodeSentTime');
+    }
+  }, [searchParams]);
+  
+  // Helper function to format countdown time
+  const formatCountdown = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+  
   // Form handlers
   const handleSignIn = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     
     try {
+      // Validate inputs based on current state
+      if (!loginVerificationSent && (!loginEmail || !loginPassword)) {
+        toast.error('Email and password are required');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Only do client-side cooldown check for empty verification code
+      // Remove the toast here because the server will return an error with a toast
+      if (loginVerificationSent && resendCooldown > 0 && !loginVerificationCode) {
+        // Don't show toast here - let the API response handle it
+        setIsSubmitting(false);
+        return;
+      }
+      
+      if (loginVerificationSent && loginVerificationCode.length !== 6) {
+        toast.error('Please enter the 6-digit verification code');
+        setIsSubmitting(false);
+        return;
+      }
+      
       const response = await login({ 
         email: loginEmail, 
-        password: loginPassword 
+        password: loginPassword,
+        verificationCode: loginVerificationSent ? loginVerificationCode : undefined
       });
       
+      console.log('Login response:', response);
+      
+      // If verification is required (either successful initial request or error response)
+      if (response.requiresVerification) {
+        setLoginVerificationSent(true);
+        
+        if (response.timeRemaining) {
+          // Handle 429 error case with server-provided timeRemaining
+          const totalSeconds = (response.timeRemaining.minutes * 60) + response.timeRemaining.seconds;
+          setResendCooldown(totalSeconds);
+          
+          // Calculate and store the appropriate sent time to match expiry
+          const currentTime = Date.now();
+          const expiryTime = currentTime + (totalSeconds * 1000);
+          const sentTime = expiryTime - (5 * 60 * 1000); // 5 minutes before expiry
+          setVerificationCodeSentTime(sentTime);
+          localStorage.setItem('verificationCodeSentTime', sentTime.toString());
+        } else {
+          // Handle fresh verification code request (success case)
+          const currentTime = Date.now();
+          setVerificationCodeSentTime(currentTime);
+          setResendCooldown(300); // 5 minutes in seconds
+          localStorage.setItem('verificationCodeSentTime', currentTime.toString());
+        }
+        
+        // Store email for verification in case of page refresh
+        localStorage.setItem('verificationEmail', loginEmail);
+        
+        // Update URL to indicate verification state
+        navigate('/?action=verify', { replace: true });
+        
+        // Only show success message for initial verification code send, not for errors
+        if (response.success) {
+          toast.success('Verification code sent to your email');
+        }
+        
+        setIsSubmitting(false);
+        return;
+      }
+      
       if (response.success) {
+        // Clear stored email and timestamp on successful login
+        localStorage.removeItem('verificationEmail');
+        localStorage.removeItem('verificationCodeSentTime');
+        
         // Add a small delay before closing dialog to ensure state updates
         setTimeout(() => {
           effectiveHandleCloseSignIn();
           setLoginEmail('');
           setLoginPassword('');
+          setLoginVerificationCode('');
+          setLoginVerificationSent(false);
+          setVerificationCodeSentTime(null);
+          setResendCooldown(0);
           
           // Redirect to admin page if user is an admin
           if (response.isAdmin) {
             navigate('/admin');
           }
+          toast.success('Login successful');
         }, 100);
+      } else {
+        toast.error(response.error || 'Login failed');
       }
     } catch (error) {
       console.error('Login error:', error);
+      // Handle API error responses
+      if (error.response?.status === 429) {
+        // Extract time remaining from server response
+        const { timeRemaining } = error.response.data;
+        
+        if (timeRemaining) {
+          const totalSeconds = (timeRemaining.minutes * 60) + timeRemaining.seconds;
+          
+          // Set the cooldown directly from server time
+          setResendCooldown(totalSeconds);
+          
+          // Calculate expiry time and store it for persistence
+          const currentTime = Date.now();
+          const expiryTime = currentTime + (totalSeconds * 1000);
+          setVerificationCodeSentTime(expiryTime - (5 * 60 * 1000)); // Adjust start time to match expiry
+          localStorage.setItem('verificationCodeSentTime', (expiryTime - (5 * 60 * 1000)).toString());
+        } else {
+          // Fallback if server doesn't provide time remaining
+          setResendCooldown(300);
+          const currentTime = Date.now();
+          setVerificationCodeSentTime(currentTime);
+          localStorage.setItem('verificationCodeSentTime', currentTime.toString());
+        }
+        
+        // Ensure we're in verification mode
+        if (!loginVerificationSent) {
+          setLoginVerificationSent(true);
+        }
+
+        // Make sure URL indicates verification state
+        const currentAction = searchParams.get('action');
+        if (currentAction !== 'verify') {
+          navigate('/?action=verify', { replace: true });
+          
+          // Store email for verification in case of page refresh
+          if (loginEmail) {
+            localStorage.setItem('verificationEmail', loginEmail);
+          }
+        }
+        
+        // Show the error message from server
+        toast.error(error.response.data.message || `Please wait before requesting a new code`);
+      } else {
+        toast.error(error.message || 'An error occurred during login');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -151,6 +350,18 @@ const AppAppBar = ({
     setIsSubmitting(true);
     
     try {
+      if (!registerEmail || !registerPassword) {
+        toast.error('Email and password are required');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      if (registerPassword.length < 8) {
+        toast.error('Password must be at least 8 characters long');
+        setIsSubmitting(false);
+        return;
+      }
+      
       const response = await register({
         email: registerEmail,
         password: registerPassword,
@@ -158,18 +369,22 @@ const AppAppBar = ({
       });
       
       if (response.success) {
+        toast.success('Registration successful!');
         // Add a small delay before closing dialog to ensure state updates
         setTimeout(() => {
-        effectiveHandleCloseSignUp();
-        setRegisterEmail('');
-        setRegisterPassword('');
+          effectiveHandleCloseSignUp();
+          setRegisterEmail('');
+          setRegisterPassword('');
           
           // Redirect to messages page after successful registration
           navigate('/messages/inbox');
         }, 100);
+      } else if (response.error) {
+        toast.error(response.error);
       }
     } catch (error) {
       console.error('Registration error:', error);
+      toast.error(error.response?.data?.error || error.message || 'Registration failed');
     } finally {
       setIsSubmitting(false);
     }
@@ -178,7 +393,13 @@ const AppAppBar = ({
   const handleResetPassword = (e) => {
     e.preventDefault();
     // This would typically call a password reset function from the store
-    // For now, we'll just close the dialog
+    if (!resetEmail) {
+      toast.error('Please enter your email address');
+      return;
+    }
+    
+    // For now just show a toast and close the dialog
+    toast.info(`Password reset link sent to ${resetEmail}`);
     console.log('Reset password for:', resetEmail);
     effectiveHandleCloseForgotPassword();
     setResetEmail('');
@@ -194,6 +415,13 @@ const AppAppBar = ({
   
   const defaultHandleCloseSignIn = () => {
     effectiveSetOpenSignIn(false);
+    setLoginVerificationSent(false);
+    setLoginVerificationCode('');
+    setVerificationCodeSentTime(null);
+    setResendCooldown(0);
+    // Clear stored verification email when closing dialog
+    localStorage.removeItem('verificationEmail');
+    localStorage.removeItem('verificationCodeSentTime');
     navigate('/', { replace: true });
   };
   
@@ -676,13 +904,16 @@ const AppAppBar = ({
           textAlign: 'center',
           pb: 0
         }}>
-          Sign In to Your Account
-          <IconButton
-            onClick={effectiveHandleCloseSignIn}
-            sx={{ position: 'absolute', right: 8, top: 8, color: '#ffffff' }}
-          >
-            <CloseRoundedIcon />
-          </IconButton>
+          {loginVerificationSent ? 'Enter Verification Code' : 'Sign In to Your Account'}
+          {/* Hide close button when in verification mode */}
+          {!loginVerificationSent && (
+            <IconButton
+              onClick={effectiveHandleCloseSignIn}
+              sx={{ position: 'absolute', right: 8, top: 8, color: '#ffffff' }}
+            >
+              <CloseRoundedIcon />
+            </IconButton>
+          )}
         </DialogTitle>
         
         <DialogContent sx={{ 
@@ -705,73 +936,137 @@ const AppAppBar = ({
               maxWidth: { sm: '100%', md: '80%' }
             }}
           >
-            <TextField
-              label="Email address"
-              fullWidth
-              variant="outlined"
-              value={loginEmail}
-              onChange={(e) => setLoginEmail(e.target.value)}
-              required
-              InputProps={{
-                sx: { color: '#ffffff', borderColor: 'rgba(255,255,255,0.3)' }
-              }}
-              InputLabelProps={{
-                sx: { color: 'rgba(255,255,255,0.7)' }
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
-                  '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
-                }
-              }}
-            />
-            
-            <Box sx={{ width: '100%' }}>
-              <Box 
-                sx={{ 
-                  display: 'flex', 
-                  justifyContent: 'flex-end', 
-                  mb: 1 
-                }}
-              >
-                <Typography 
-                  variant="body2" 
-                  onClick={effectiveHandleOpenForgotPassword}
-                  sx={{ 
-                    color: 'rgba(255,255,255,0.7)', 
-                    textDecoration: 'underline',
-                    cursor: 'pointer',
-                    '&:hover': {
-                      color: '#ffffff'
+            {!loginVerificationSent ? (
+              // Initial login form
+              <>
+                <TextField
+                  label="Email address"
+                  fullWidth
+                  variant="outlined"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  required
+                  InputProps={{
+                    sx: { color: '#ffffff', borderColor: 'rgba(255,255,255,0.3)' }
+                  }}
+                  InputLabelProps={{
+                    sx: { color: 'rgba(255,255,255,0.7)' }
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
+                      '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
                     }
                   }}
-                >
-                  Forgot password?
+                />
+                
+                <Box sx={{ width: '100%' }}>
+                  <Box 
+                    sx={{ 
+                      display: 'flex', 
+                      justifyContent: 'flex-end', 
+                      mb: 1 
+                    }}
+                  >
+                    <Typography 
+                      variant="body2" 
+                      onClick={effectiveHandleOpenForgotPassword}
+                      sx={{ 
+                        color: 'rgba(255,255,255,0.7)', 
+                        textDecoration: 'underline',
+                        cursor: 'pointer',
+                        '&:hover': {
+                          color: '#ffffff'
+                        }
+                      }}
+                    >
+                      Forgot password?
+                    </Typography>
+                  </Box>
+                  
+                  <TextField
+                    label="Password"
+                    type="password"
+                    fullWidth
+                    variant="outlined"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    required
+                    InputProps={{
+                      sx: { color: '#ffffff' }
+                    }}
+                    InputLabelProps={{
+                      sx: { color: 'rgba(255,255,255,0.7)' }
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
+                        '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
+                      }
+                    }}
+                  />
+                </Box>
+              </>
+            ) : (
+              // Verification code form
+              <>
+                <Typography variant="body1" sx={{ textAlign: 'center', color: '#ffffff' }}>
+                  A verification code has been sent to {loginEmail}
                 </Typography>
-              </Box>
-              
-              <TextField
-                label="Password"
-                type="password"
-                fullWidth
-                variant="outlined"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                required
-                InputProps={{
-                  sx: { color: '#ffffff' }
-                }}
-                InputLabelProps={{
-                  sx: { color: 'rgba(255,255,255,0.7)' }
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
-                    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
-                  }
-                }}
-              />
-            </Box>
+                <TextField
+                  label="Verification Code"
+                  fullWidth
+                  variant="outlined"
+                  value={loginVerificationCode}
+                  onChange={(e) => {
+                    const numbersOnly = e.target.value.replace(/[^0-9]/g, '');
+                    if (numbersOnly.length <= 6) {
+                      setLoginVerificationCode(numbersOnly);
+                    }
+                  }}
+                  required
+                  inputProps={{
+                    maxLength: 6,
+                    pattern: '[0-9]*',
+                    inputMode: 'numeric',
+                  }}
+                  helperText={resendCooldown > 0 
+                    ? `You can request a new code in ${formatCountdown(resendCooldown)}` 
+                    : "Enter the 6-digit code sent to your email"}
+                  InputProps={{
+                    sx: { color: '#ffffff' }
+                  }}
+                  InputLabelProps={{
+                    sx: { color: 'rgba(255,255,255,0.7)' }
+                  }}
+                  FormHelperTextProps={{
+                    sx: { color: 'rgba(255,255,255,0.5)' }
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
+                      '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
+                    }
+                  }}
+                  autoFocus
+                />
+                {/* Add "Resend Code" button if cooldown expired */}
+                {resendCooldown === 0 && loginVerificationCode.length === 0 && (
+                  <Button
+                    size="small"
+                    color="secondary"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setLoginVerificationCode('');
+                      handleSignIn(e);
+                    }}
+                    sx={{ alignSelf: 'flex-end' }}
+                  >
+                    Resend Code
+                  </Button>
+                )}
+              </>
+            )}
             
             <Button
               type="submit"
@@ -779,10 +1074,11 @@ const AppAppBar = ({
               variant="contained"
               color="primary"
               size="large"
-              disabled={isSubmitting}
+              disabled={isSubmitting || (loginVerificationSent && loginVerificationCode.length !== 6)}
               sx={{ borderRadius: '8px', mb: 2 }}
             >
-              {isSubmitting ? <CircularProgress size={24} color="inherit" /> : 'Sign In'}
+              {isSubmitting ? <CircularProgress size={24} color="inherit" /> : 
+                loginVerificationSent ? 'Verify & Sign In' : 'Sign In'}
             </Button>
           </Box>
         </DialogContent>
@@ -798,25 +1094,28 @@ const AppAppBar = ({
             width: '100%'
           }}
         >
-          <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%', mt: 1 }}>
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mr: 1 }}>
-              Don't have an account?
-            </Typography>
-            <Typography 
-              variant="body2" 
-              onClick={effectiveSwitchToSignUp}
-              sx={{ 
-                color: '#f50057', 
-                cursor: 'pointer', 
-                fontWeight: 500,
-                '&:hover': {
-                  textDecoration: 'underline'
-                }
-              }}
-            >
-              Sign up now
-            </Typography>
-          </Box>
+          {/* Only show sign-up link when not in verification mode */}
+          {!loginVerificationSent && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%', mt: 1 }}>
+              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mr: 1 }}>
+                Don't have an account?
+              </Typography>
+              <Typography 
+                variant="body2" 
+                onClick={effectiveSwitchToSignUp}
+                sx={{ 
+                  color: '#f50057', 
+                  cursor: 'pointer', 
+                  fontWeight: 500,
+                  '&:hover': {
+                    textDecoration: 'underline'
+                  }
+                }}
+              >
+                Sign up now
+              </Typography>
+            </Box>
+          )}
         </DialogActions>
       </Dialog>
 

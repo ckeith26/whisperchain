@@ -26,10 +26,12 @@ export default function SignUpCard() {
     email: "",
     password: "",
     confirmPassword: "",
-    preferredRole: "recipient", // Default role
+    preferredRole: "recipient",
+    verificationCode: "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
   const [apiWarmupTime, setApiWarmupTime] = useState(0);
   const register = useStore((state) => state.authSlice.register);
 
@@ -47,8 +49,26 @@ export default function SignUpCard() {
     };
   }, [loading]);
 
+  // Debug - print state changes
+  useEffect(() => {
+    console.log("SignUpCard - Verification sent state:", verificationSent);
+  }, [verificationSent]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
+    
+    // For verification code, only allow numbers and limit to 6 digits
+    if (name === 'verificationCode') {
+      const numbersOnly = value.replace(/[^0-9]/g, '');
+      if (numbersOnly.length <= 6) {
+        setFormData((prev) => ({
+          ...prev,
+          [name]: numbersOnly,
+        }));
+      }
+      return;
+    }
+    
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -56,30 +76,38 @@ export default function SignUpCard() {
   };
 
   const validateForm = () => {
-    if (
-      !formData.username ||
-      !formData.email ||
-      !formData.password ||
-      !formData.confirmPassword
-    ) {
-      setError("All fields are required");
-      return false;
-    }
+    if (!verificationSent) {
+      if (
+        !formData.username ||
+        !formData.email ||
+        !formData.password ||
+        !formData.confirmPassword
+      ) {
+        setError("All fields are required");
+        return false;
+      }
 
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
-      return false;
-    }
+      if (formData.password !== formData.confirmPassword) {
+        setError("Passwords do not match");
+        return false;
+      }
 
-    if (formData.password.length < 8) {
-      setError("Password must be at least 8 characters long");
-      return false;
-    }
+      if (formData.password.length < 8) {
+        setError("Password must be at least 8 characters long");
+        return false;
+      }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      setError("Please enter a valid email address");
-      return false;
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        setError("Please enter a valid email address");
+        return false;
+      }
+    } else {
+      // When verification code is required
+      if (formData.verificationCode.length !== 6) {
+        setError("Please enter the 6-digit verification code");
+        return false;
+      }
     }
 
     return true;
@@ -87,38 +115,46 @@ export default function SignUpCard() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-
-    if (!validateForm()) {
-      return;
-    }
-
-    setLoading(true);
-    setApiWarmupTime(0);
+    if (!validateForm()) return;
 
     try {
-      const { confirmPassword, preferredRole, ...registrationData } = formData;
-      // Map the form fields to what the backend expects
-      const userData = {
-        name: formData.username,
+      setLoading(true);
+      setError("");
+
+      // Send registration request with verification code if present
+      const result = await register({
         email: formData.email,
         password: formData.password,
+        name: formData.username,
         role: formData.preferredRole,
-      };
+        verificationCode: verificationSent ? formData.verificationCode : undefined,
+      });
 
-      const result = await register(userData);
+      console.log('Registration result:', result);
+
+      if (result.requiresVerification) {
+        console.log("SignUpCard - Setting verification sent to TRUE");
+        setVerificationSent(true);
+        toast.success('Verification code sent to your email');
+        setLoading(false);
+        return;
+      }
+
       if (result.success) {
-        navigate("/messages");
+        navigate("/chat");
       } else {
-        setError(result.message || "Registration failed. Please try again.");
+        setError(result.error || "Registration failed");
+        setLoading(false);
       }
     } catch (err) {
-      setError("An unexpected error occurred. Please try again.");
       console.error("Registration error:", err);
-    } finally {
+      setError("Registration failed: " + (err.message || "Unknown error"));
       setLoading(false);
     }
   };
+
+  // Debug render states
+  console.log("Rendering SignUpCard with verification state:", verificationSent);
 
   return (
     <Paper
@@ -127,122 +163,141 @@ export default function SignUpCard() {
         p: 4,
         display: "flex",
         flexDirection: "column",
-        minWidth: { xs: "100%", sm: "450px" },
-        maxWidth: "550px",
-        position: "relative",
+        alignItems: "center",
+        maxWidth: 400,
+        mx: "auto",
+        mt: 4,
       }}
     >
-      <Typography
-        component="h1"
-        variant="h4"
-        color="primary"
-        align="center"
-        gutterBottom
-        sx={{ fontWeight: "bold" }}
-      >
-        Create Account
+      <Typography component="h1" variant="h5" gutterBottom>
+        {verificationSent ? "Enter Verification Code" : "Sign Up"}
       </Typography>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ width: "100%", mb: 2 }}>
           {error}
         </Alert>
       )}
 
-      <form onSubmit={handleSubmit}>
-        <Grid container spacing={2}>
-          <Grid item xs={12}>
+      <Box component="form" onSubmit={handleSubmit} sx={{ width: "100%" }}>
+        {!verificationSent ? (
+          // Initial state - registration form
+          <>
             <TextField
-              name="username"
-              label="Username"
+              margin="normal"
+              required
               fullWidth
+              label="Username"
+              name="username"
+              autoComplete="username"
               value={formData.username}
               onChange={handleChange}
-              variant="outlined"
             />
-          </Grid>
-          <Grid item xs={12}>
             <TextField
-              name="email"
-              label="Email"
+              margin="normal"
+              required
               fullWidth
+              label="Email Address"
+              name="email"
+              autoComplete="email"
               value={formData.email}
               onChange={handleChange}
-              variant="outlined"
-              type="email"
             />
-          </Grid>
-          <Grid item xs={12}>
             <TextField
+              margin="normal"
+              required
+              fullWidth
               name="password"
               label="Password"
-              fullWidth
+              type="password"
+              autoComplete="new-password"
               value={formData.password}
               onChange={handleChange}
-              variant="outlined"
-              type="password"
             />
-          </Grid>
-          <Grid item xs={12}>
             <TextField
+              margin="normal"
+              required
+              fullWidth
               name="confirmPassword"
               label="Confirm Password"
-              fullWidth
+              type="password"
+              autoComplete="new-password"
               value={formData.confirmPassword}
               onChange={handleChange}
-              variant="outlined"
-              type="password"
             />
-          </Grid>
-          <Grid item xs={12}>
-            <FormControl fullWidth>
-              <InputLabel id="role-select-label">I want to...</InputLabel>
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Preferred Role</InputLabel>
               <Select
-                labelId="role-select-label"
                 name="preferredRole"
                 value={formData.preferredRole}
                 onChange={handleChange}
-                label="I want to..."
+                label="Preferred Role"
               >
-                <MenuItem value="recipient">Receive Messages</MenuItem>
-                <MenuItem value="moderator">Help Moderate Content</MenuItem>
+                <MenuItem value="recipient">Recipient</MenuItem>
+                <MenuItem value="user">User</MenuItem>
               </Select>
             </FormControl>
-          </Grid>
-        </Grid>
+          </>
+        ) : (
+          // Verification state - code input
+          <>
+            <Typography variant="body1" sx={{ mb: 2, textAlign: "center" }}>
+              A verification code has been sent to {formData.email}
+            </Typography>
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              label="Verification Code"
+              name="verificationCode"
+              value={formData.verificationCode}
+              onChange={handleChange}
+              inputProps={{
+                maxLength: 6,
+                pattern: '[0-9]*',
+                inputMode: 'numeric',
+              }}
+              helperText="Enter the 6-digit code sent to your email"
+              autoFocus
+            />
+          </>
+        )}
 
         <Button
           type="submit"
           fullWidth
           variant="contained"
-          size="large"
-          disabled={loading}
           sx={{ mt: 3, mb: 2 }}
+          disabled={loading || (verificationSent && formData.verificationCode.length !== 6)}
         >
-          {loading ? "Creating Account..." : "Create Account"}
+          {loading ? (
+            <CircularProgress size={24} />
+          ) : verificationSent ? (
+            'Verify & Sign Up'
+          ) : (
+            'Sign Up'
+          )}
         </Button>
 
-        <Box textAlign="center">
-          <Link href="/login" variant="body2">
-            Already have an account? Sign in
-          </Link>
-        </Box>
-      </form>
+        <Grid container justifyContent="flex-end">
+          <Grid item>
+            <Link href="/sign-in" variant="body2">
+              Already have an account? Sign in
+            </Link>
+          </Grid>
+        </Grid>
+      </Box>
 
       <Backdrop
-        sx={{
-          color: "#fff",
-          zIndex: (theme) => theme.zIndex.drawer + 1,
-          flexDirection: "column",
-        }}
-        open={loading && apiWarmupTime >= 3}
+        sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        open={loading && apiWarmupTime > 5}
       >
-        <CircularProgress color="inherit" />
-        <Typography variant="body1" sx={{ mt: 2, textAlign: "center" }}>
-          Our API might be warming up...
-          <br />
-          This could take up to 30 seconds.
-        </Typography>
+        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <CircularProgress color="inherit" />
+          <Typography sx={{ mt: 2 }}>
+            API is warming up... Please wait ({apiWarmupTime}s)
+          </Typography>
+        </Box>
       </Backdrop>
     </Paper>
   );

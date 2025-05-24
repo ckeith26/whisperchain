@@ -21,13 +21,17 @@ import {
   FormControlLabel,
   Radio,
   DialogActions,
-  Backdrop
+  Backdrop,
+  Link
 } from '@mui/material';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import LockIcon from '@mui/icons-material/Lock';
 import MessageIcon from '@mui/icons-material/Message';
 import SecurityIcon from '@mui/icons-material/Security';
 import CloseIcon from '@mui/icons-material/Close';
+import SendIcon from '@mui/icons-material/Send';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import useStore from '../../store';
 import AppAppBar from '../shared-components/AppAppBar/AppAppBar';
 import Typewriter from 'typewriter-effect';
@@ -141,11 +145,13 @@ const Hero = ({
               options={{
                 strings: [
                   "Secure, anonymous messaging with role-based access control",
-                  "Send encrypted messages",
-                  "Maintain anonymity with end-to-end encryption",
-                  "Sender, Recipient, Moderator, Admin role support",
+                  "Send encrypted messages with complete privacy protection",
+                  "Advanced verification system with one-time codes",
+                  "Comprehensive moderation tools for community safety",
+                  "Role-based permissions: Sender, Recipient, Moderator, Admin",
                   "Search for recipients securely and privately",
-                  "Flag content that violates community guidelines"
+                  "Flag inappropriate content and maintain platform integrity",
+                  "Admin controls for user management and platform oversight"
                 ],
                 autoStart: true,
                 loop: true,
@@ -216,10 +222,43 @@ const Hero = ({
 const Features = () => {
   const theme = useTheme();
   
+  const features = [
+    {
+      icon: <LockIcon sx={{ fontSize: 60, mb: 2, color: '#f50057' }} />,
+      title: 'Anonymous Messaging',
+      description: 'Send and receive messages anonymously with end-to-end encryption and complete privacy protection.'
+    },
+    {
+      icon: <SecurityIcon sx={{ fontSize: 60, mb: 2, color: '#3f51b5' }} />,
+      title: 'Role-Based Access',
+      description: 'Secure environment with role-based permissions for senders, recipients, moderators and admins.'
+    },
+    {
+      icon: <MessageIcon sx={{ fontSize: 60, mb: 2, color: '#4caf50' }} />,
+      title: 'Secure Inbox',
+      description: 'Organize and manage your encrypted messages with a user-friendly interface and search capabilities.'
+    },
+    {
+      icon: <SendIcon sx={{ fontSize: 60, mb: 2, color: '#ff9800' }} />,
+      title: 'Easy Message Sending',
+      description: 'Send anonymous messages to other users with recipient search and secure delivery confirmation.'
+    },
+    {
+      icon: <VerifiedUserIcon sx={{ fontSize: 60, mb: 2, color: '#9c27b0' }} />,
+      title: 'Content Moderation',
+      description: 'Community-driven moderation system to flag inappropriate content and maintain platform safety.'
+    },
+    {
+      icon: <AdminPanelSettingsIcon sx={{ fontSize: 60, mb: 2, color: '#607d8b' }} />,
+      title: 'Admin Controls',
+      description: 'Comprehensive admin panel for user management, platform oversight, and security monitoring.'
+    }
+  ];
+  
   return (
     <Box
       sx={{
-        height: '100vh',
+        minHeight: '100vh',
         width: '100%',
         display: 'flex',
         flexDirection: 'column',
@@ -227,9 +266,10 @@ const Features = () => {
         scrollSnapAlign: 'start',
         backgroundColor: '#0d2538', 
         backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% 120%, rgba(63, 81, 181, 0.2), transparent)',
+        py: 8
       }}
     >
-      <Container maxWidth="lg" sx={{ py: 8 }}>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
         <Typography 
           variant="h3" 
           component="h2" 
@@ -244,83 +284,87 @@ const Features = () => {
           Key Features
         </Typography>
         <Grid container spacing={4}>
-          <Grid item xs={12} md={4}>
-            <Paper 
-              elevation={4} 
-              sx={{ 
-                p: 4, 
-                height: '100%',
-                transition: 'transform 0.3s, box-shadow 0.3s',
-                backgroundColor: 'rgba(255,255,255,0.04)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                '&:hover': {
-                  transform: 'translateY(-8px)',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                } 
-              }}
-            >
-              <Box display="flex" flexDirection="column" alignItems="center" textAlign="center">
-                <LockIcon sx={{ fontSize: 60, mb: 2, color: '#f50057' }} />
-                <Typography variant="h5" gutterBottom fontWeight="bold" color="#ffffff">
-                  Anonymous Messaging
-                </Typography>
-                <Typography color="rgba(255,255,255,0.7)">
-                  Send and receive messages anonymously with encryption and privacy controls.
-                </Typography>
-              </Box>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Paper 
-              elevation={4} 
-              sx={{ 
-                p: 4, 
-                height: '100%',
-                transition: 'transform 0.3s, box-shadow 0.3s',
-                backgroundColor: 'rgba(255,255,255,0.04)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                '&:hover': {
-                  transform: 'translateY(-8px)',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                } 
-              }}
-            >
-              <Box display="flex" flexDirection="column" alignItems="center" textAlign="center">
-                <SecurityIcon sx={{ fontSize: 60, mb: 2, color: '#3f51b5' }} />
-                <Typography variant="h5" gutterBottom fontWeight="bold" color="#ffffff">
-                  Role-Based Access
-                </Typography>
-                <Typography color="rgba(255,255,255,0.7)">
-                  Secure environment with role-based permissions for senders, recipients, moderators and admins.
-                </Typography>
-              </Box>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Paper 
-              elevation={4} 
-              sx={{ 
-                p: 4, 
-                height: '100%',
-                transition: 'transform 0.3s, box-shadow 0.3s',
-                backgroundColor: 'rgba(255,255,255,0.04)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                '&:hover': {
-                  transform: 'translateY(-8px)',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                } 
-              }}
-            >
-              <Box display="flex" flexDirection="column" alignItems="center" textAlign="center">
-                <MessageIcon sx={{ fontSize: 60, mb: 2, color: '#4caf50' }} />
-              </Box>
-            </Paper>
-          </Grid>
+          {features.map((feature, index) => (
+            <Grid item xs={12} md={6} lg={4} key={index}>
+              <Paper 
+                elevation={4} 
+                sx={{ 
+                  p: 4, 
+                  height: '100%',
+                  transition: 'transform 0.3s, box-shadow 0.3s',
+                  backgroundColor: 'rgba(255,255,255,0.04)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  '&:hover': {
+                    transform: 'translateY(-8px)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                  } 
+                }}
+              >
+                <Box display="flex" flexDirection="column" alignItems="center" textAlign="center">
+                  {feature.icon}
+                  <Typography variant="h5" gutterBottom fontWeight="bold" color="#ffffff">
+                    {feature.title}
+                  </Typography>
+                  <Typography color="rgba(255,255,255,0.7)">
+                    {feature.description}
+                  </Typography>
+                </Box>
+              </Paper>
+            </Grid>
+          ))}
         </Grid>
       </Container>
+      
+      {/* Footer integrated within Features section */}
+      <Box 
+        component="footer" 
+        sx={{ 
+          py: 6, 
+          mt: 6,
+          textAlign: 'center', 
+          borderTop: '1px solid rgba(255,255,255,0.05)', 
+          color: 'rgba(255,255,255,0.6)',
+          fontSize: '0.875rem'
+        }}
+      >
+        <Container maxWidth="lg">
+          <Typography variant="body2" color="inherit">
+            © {new Date().getFullYear()} WhisperChain+ | Secure Messaging Platform
+          </Typography>
+          <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+            <Link 
+              href="https://www.linkedin.com/in/cameron-keith-656b27253/" 
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{ 
+                textDecoration: 'none', 
+                color: 'inherit',
+                '&:hover': { 
+                  textDecoration: 'underline'
+                }
+              }}
+            >
+              LinkedIn
+            </Link>
+            {' | '}
+            <Link 
+              href="https://github.com/ckeith26" 
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{ 
+                textDecoration: 'none', 
+                color: 'inherit',
+                '&:hover': { 
+                  textDecoration: 'underline'
+                }
+              }}
+            >
+              Github
+            </Link>
+          </Typography>
+        </Container>
+      </Box>
     </Box>
   );
 };
@@ -359,6 +403,10 @@ const Home = () => {
       setOpenSignIn(false);
       setOpenSignUp(false);
       setOpenForgotPassword(true);
+    } else if (action === 'verify') {
+      setOpenSignUp(false);
+      setOpenForgotPassword(false);
+      setOpenSignIn(true);
     }
   }, [searchParams, authenticated]);
 
@@ -466,26 +514,6 @@ const Home = () => {
           setEmailInput={setEmailInput}
         />
         <Features />
-        <Box 
-          component="footer" 
-          sx={{ 
-            py: 3, 
-            textAlign: 'center', 
-            borderTop: '1px solid rgba(255,255,255,0.05)', 
-            backgroundColor: '#050e1a',
-            color: 'rgba(255,255,255,0.6)',
-            fontSize: '0.875rem',
-          }}
-        >
-          <Container maxWidth="lg">
-            <Typography variant="body2" color="inherit">
-              © {new Date().getFullYear()} WhisperChain+ | Secure Messaging Platform
-            </Typography>
-            <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
-              Privacy Policy • Terms of Service • Contact
-            </Typography>
-          </Container>
-        </Box>
       </Box>
       <style>{`
         .typewriter-wrapper {

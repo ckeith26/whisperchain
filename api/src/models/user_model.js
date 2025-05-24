@@ -70,6 +70,10 @@ const UserSchema = new Schema(
       },
     ],
     isSuspended: { type: Boolean, default: false },
+    
+    // Login attempt tracking and lockout
+    failedLoginAttempts: { type: Number, default: 0 },
+    accountLockedUntil: { type: Date, default: null },
   },
   {
     toObject: { virtuals: true },
@@ -171,7 +175,31 @@ UserSchema.methods.updateRole = function updateRole(role) {
   this.role = role;
 };
 
-const UserModel = mongoose.model("User", UserSchema);
+// Check if account is currently locked
+UserSchema.methods.isAccountLocked = function() {
+  return this.accountLockedUntil && this.accountLockedUntil > new Date();
+};
+
+// Increment failed login attempts and lock account if necessary
+UserSchema.methods.incrementFailedAttempts = async function() {
+  this.failedLoginAttempts += 1;
+  
+  // Lock account for 5 minutes after 5 failed attempts
+  if (this.failedLoginAttempts >= 5) {
+    this.accountLockedUntil = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes from now
+  }
+  
+  await this.save();
+};
+
+// Reset failed login attempts on successful login
+UserSchema.methods.resetFailedAttempts = async function() {
+  this.failedLoginAttempts = 0;
+  this.accountLockedUntil = null;
+  await this.save();
+};
+
+const UserModel = mongoose.model('User', UserSchema);
 
 export { ROLES };
 export default UserModel;
