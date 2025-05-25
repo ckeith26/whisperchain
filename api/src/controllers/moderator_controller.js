@@ -41,6 +41,7 @@ export const getFlaggedMessages = async (req, res) => {
     })
       .sort({ flaggedAt: -1 })
       .skip(skip)
+      .select('originalSentAt flaggedAt serverEncryptedContent originalMessageId')
       .limit(limit);
 
     // Get total count for pagination
@@ -91,14 +92,11 @@ export const getFlaggedMessages = async (req, res) => {
             flaggedMessageId: flaggedMsg._id,
             content: '', // Don't expose original encrypted content
             moderatorContent,
-            senderUid: flaggedMsg.senderUid,
             recipient: recipient
               ? {
-                uid: recipient.uid,
-                email: recipient.email,
-                displayName: recipient.displayName || recipient.name,
+                displayName: `User-${recipient.uid.slice(-6)}`, // Show only last 6 chars of UID
               }
-              : { uid: flaggedMsg.recipientUid, email: 'Unknown User', displayName: 'Unknown User' },
+              : { displayName: 'Unknown User' },
             sentAt: flaggedMsg.originalSentAt,
             flaggedAt: flaggedMsg.flaggedAt,
             flaggedBy: flaggedMsg.flaggedBy,
@@ -115,8 +113,7 @@ export const getFlaggedMessages = async (req, res) => {
             flaggedMessageId: flaggedMsg._id,
             content: '',
             moderatorContent: null,
-            senderUid: flaggedMsg.senderUid,
-            recipient: { uid: flaggedMsg.recipientUid, email: 'Unknown User', displayName: 'Unknown User' },
+            recipient: { displayName: 'Unknown User' },
             sentAt: flaggedMsg.originalSentAt,
             flaggedAt: flaggedMsg.flaggedAt,
             flaggedBy: flaggedMsg.flaggedBy,
@@ -337,7 +334,7 @@ export const moderateMessage = async (req, res) => {
     // Find the flagged message entry (not the original message)
     const flaggedMessage = await FlaggedMessageModel.findOne({ 
       originalMessageId: messageId,
-      moderationStatus: 'pending' 
+      moderationStatus: 'pending',
     });
     if (!flaggedMessage) {
       return res.status(404).json({ error: 'Flagged message not found' });

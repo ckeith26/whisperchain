@@ -542,8 +542,8 @@ const FlaggedMessages = () => {
               <TableRow>
                 <TableCell sx={{ color: "white" }}>Sent At</TableCell>
                 <TableCell sx={{ color: "white" }}>Flagged At</TableCell>
-                <TableCell sx={{ color: "white" }}>Sender ID</TableCell>
-                <TableCell sx={{ color: "white" }}>Recipient ID</TableCell>
+                <TableCell sx={{ color: "white" }}>Sender</TableCell>
+                <TableCell sx={{ color: "white" }}>Recipient</TableCell>
                 <TableCell sx={{ color: "white" }}>Content Preview</TableCell>
                 <TableCell sx={{ color: "white" }}>Actions</TableCell>
               </TableRow>
@@ -558,10 +558,10 @@ const FlaggedMessages = () => {
                     {formatDate(message.flaggedAt)}
                   </TableCell>
                   <TableCell sx={{ color: "white" }}>
-                    {message.senderUid || "Unknown"}
+                    Anonymous User
                   </TableCell>
                   <TableCell sx={{ color: "white" }}>
-                    {message.recipient?.uid || "Unknown"}
+                    {message.recipient?.displayName || "Unknown User"}
                   </TableCell>
                   <TableCell sx={{ 
                     color: "white",
@@ -625,10 +625,10 @@ const FlaggedMessages = () => {
                   Flagged: {formatDate(selected.flaggedAt)}
                 </Typography>
                 <Typography variant="body2" color="white" gutterBottom>
-                  Sender ID: {selected.senderUid || "Unknown"}
+                  Sender: Anonymous User
                 </Typography>
                 <Typography variant="body2" color="white" gutterBottom>
-                  Recipient ID: {selected.recipient?.uid || "Unknown"}
+                  Recipient: {selected.recipient?.displayName || "Unknown User"}
                 </Typography>
               </Box>
 
