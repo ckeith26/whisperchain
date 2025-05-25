@@ -166,7 +166,7 @@ const ModeratorPanel = () => {
           </ListItemIcon>
           <ListItemText primary="Audit Logs" />
         </ListItem>
-        <ListItem
+        {/* <ListItem
           button
           selected={tabValue === 2}
           onClick={() => setTabValue(2)}
@@ -176,7 +176,7 @@ const ModeratorPanel = () => {
             <AuditLogTester />
           </ListItemIcon>
           <ListItemText primary="Test Audit Protection" />
-        </ListItem>
+        </ListItem> */}
         <ListItem
           button
           selected={tabValue === 3}
