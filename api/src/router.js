@@ -35,9 +35,9 @@ router
   .route('/admin/users')
   .get(requireAuth, requireAdmin, AdminController.getUsers);
 
-router
-  .route('/admin/toggleSuspension')
-  .post(requireAuth, requireAdmin, AdminController.toggleUserSuspension);
+// router
+//   .route('/admin/toggleSuspension')
+//   .post(requireAuth, requireAdmin, AdminController.toggleUserSuspension);
 
 router
   .route('/admin/assignRole')
@@ -127,10 +127,6 @@ router
 router
   .route('/moderator/moderateMessage')
   .post(requireAuth, requireModerator, ModeratorController.moderateMessage);
-
-router
-  .route('/moderator/suspendUser')
-  .post(requireAuth, requireModerator, ModeratorController.suspendUser);
 
 router
   .route('/moderator/freezeToken')

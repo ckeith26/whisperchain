@@ -175,7 +175,7 @@ export const encryptWithModeratorKey = (data, moderatorPublicKey) => {
             padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
             oaepHash: 'sha256',
           },
-          chunk
+          chunk,
         );
         chunks.push(encryptedChunk.toString('base64'));
       }

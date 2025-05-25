@@ -85,7 +85,10 @@ npm run generate-keys
 
 5. **Start the server**
 ```bash
-npm run dev
+npm start
+```
+```bash
+npm run prod
 ```
 
 ### Frontend Setup
@@ -110,33 +113,46 @@ VITE_API_URL=http://localhost:9090/api
 ```bash
 npm run dev
 ```
+```bash
+npm start
+```
 
 ## API Endpoints
 
 ### Authentication
-- `POST /api/auth/login` - User authentication
 - `POST /api/auth/register` - New user registration
-- `GET /api/auth/profile` - User profile information
-- `POST /api/auth/generateKeyPair` - RSA key pair generation
+- `POST /api/auth/login` - User authentication
 
-### Messaging (User Role)
-- `POST /api/messages` - Send encrypted message
+### Messaging (User Role) protected by requireAuth, requireRole(ROLES.USER)
+- `POST /api/messages/send` - Send encrypted message
 - `GET /api/messages` - Retrieve received messages
 - `GET /api/messages/sent` - View sent message history
 - `POST /api/messages/flag` - Flag/unflag inappropriate messages
+- `POST /api/messages/markAsRead` - Marks messages as read
+- `POST /api/messages/unread/count` - Returns unread message count
+- `GET /api/auth/profile` - User profile information
+- `POST /api/auth/generateKeyPair` - RSA key pair generation
+- `GET /api/moderator/public-key` - Get moderator public key
+- `GET /api/auth/searchUsers` - Search for users by email address
 
-### Moderation (Moderator Role)
+### Moderation (Moderator Role) protected by requireAuth, requireModerator
 - `GET /api/moderator/flaggedMessages` - View flagged message queue
-- `POST /api/moderator/moderate` - Take moderation action
+- `GET /api/moderator/flagged/count` - Get number of flagged messages
+- `POST /api/moderator/moderateMessage` - Take moderation action
+- `POST /api/moderator/freezeToken` - Suspends the sender of a flagged message
 - `GET /api/moderator/auditLogs` - Access audit logs
 - `POST /api/moderator/public-key` - Set moderator public key
 - `GET /api/moderator/flagged/count` - Get flagged message count
 
-### Administration (Admin Role)
-- `GET /api/admin/users` - List all users
-- `GET /api/admin/pendingUsers` - View pending user approvals
+### Administration (Admin Role) protected by requireAuth, requireAdmin
+- `POST /api/admin/setup` - Create the admin account (only works once since there's only one admin)
+- `POST /api/admin/addUser` - Add new users
 - `POST /api/admin/assignRole` - Assign user roles
-- `GET /api/admin/stats` - System statistics
+- `GET /api/admin/users` - List all users
+- `GET /api/admin/stats` - Get platform basic overview (e.g., number of users, messages sent/received)
+- `GET /api/admin/pendingUsers` - View pending user mod requests
+- `POST /api/admin/makeModeratorIdle` - Pause Mod's access
+- `POST /api/admin/reactivateModerator` - Resume Mod's access
 
 ## Usage Guide
 
@@ -154,10 +170,8 @@ npm run dev
 4. **Audit Access**: Review system audit logs for security monitoring
 
 ### For Admins
-1. **User Management**: Approve pending registrations and assign roles
+1. **User Management**: Approve pending registrations
 2. **System Oversight**: Monitor system statistics and health
-3. **Audit Review**: Access comprehensive audit logs
-4. **Role Assignment**: Manage user permissions and access levels
 
 ## Project Structure
 
@@ -166,19 +180,47 @@ whisperchain/
 ├── api/                          # Backend server
 │   ├── src/
 │   │   ├── controllers/          # API endpoint handlers
+│   │   │   ├── admin_controller.js
+│   │   │   ├── auth_controller.js
+│   │   │   ├── crypto_controller.js
+│   │   │   ├── message_controller.js   
+│   │   │   ├── moderator_controller.js
+│   │   │   └── verification_code_controller.js 
 │   │   ├── models/              # Database schemas
-│   │   ├── middleware/          # Authentication & authorization
-│   │   ├── services/            # Business logic
-│   │   ├── utils/               # Cryptographic utilities
+│   │   │   ├── admin_model.js
+│   │   │   ├── audit_log_model.js
+│   │   │   ├── auth_token_model.js   
+│   │   │   ├── flagged_messages_model.js
+│   │   │   ├── message_model.js  
+│   │   │   ├── user_model.js  
+│   │   │   └── verification_code_model.js 
+│   │   ├── services/            # Authentication and authorization
+│   │   │   ├── auth_service.js    # authentication and authorization
+│   │   │   └── email_service.js   # sends emails
+│   │   ├── utils/               # Cryptography
+│   │   │   ├── adminSetup.js    # admin setup
+│   │   │   └── crypto.js        # crypto functions
+│   │   ├── router.js           # Routes
 │   │   └── server.js           # Application entry point
 │   ├── package.json
 │   └── .env
 ├── client/                       # Frontend application
 │   ├── src/
 │   │   ├── components/          # React components
+│   │   │   ├── admin/
+│   │   │   ├── chat/
+│   │   │   ├── home/
+│   │   │   ├── moderator/
+│   │   │   ├── profile/
+│   │   │   ├── shared-components/
+│   │   │   ├── sign-in/
+│   │   │   └── sign-up/
 │   │   ├── utils/               # Client-side crypto utilities
 │   │   ├── store/              # State management
-│   │   └── App.jsx             # Main application component
+│   │   │   ├── authSlice.js # auth
+│   │   │   ├── index.js
+│   │   │   └── userSlice.js # user
+│   │   └── index.jsx             # Main application component
 │   ├── package.json
 │   └── .env
 └── README.md
@@ -190,7 +232,8 @@ whisperchain/
 - **Algorithm**: RSA-OAEP with SHA-256
 - **Key Size**: 2048-bit RSA keys
 - **Chunking**: Automatic splitting for messages >190 bytes
-- **Format**: PKCS#8 (private), SPKI (public), Base64 encoding
+- **Format**: PKCSS8 (private), RSA_PKCS1_OAEP_PADDING, OAEP encoding
+- **Key Management**: Public key for encryption, private key for decryptionSPKI (public), Base64 encoding
 
 ### Anonymous Token System
 - **Format**: `msg_${timestamp}_${nanoid(10)}`
@@ -202,14 +245,13 @@ whisperchain/
 - **Tamper Protection**: Append-only design, modification prevention
 - **Privacy Preservation**: No sender identity logging, only role-level metadata
 
-## Advanced Features
+## Features
 
 ### Implemented Extensions
 - **Unlinkable Token System**: Anonymous message attribution without identity exposure
 - **Server-Mediated Encryption**: Secure moderator access to flagged content
 - **Role-Based UI Adaptation**: Interface changes based on user permissions
 - **Comprehensive Audit Trail**: Detailed logging while preserving anonymity
-- **Intrusion Detection**: Monitoring for suspicious patterns and abuse
 
 ### Security Measures
 - **Admin Compromise Protection**: Separation of duties, content access restrictions
@@ -230,15 +272,6 @@ whisperchain/
 - Flagging and moderation process
 - User management and role assignment
 - Cross-platform encryption compatibility
-
-## Performance Characteristics
-
-Based on production logs:
-- Health checks: ~0.5ms average response time
-- Message operations: ~85ms average
-- Flagged message queries: ~80ms average
-- Authentication: ~200ms average
-- Database operations: Optimized with proper indexing
 
 ## Threat Model
 
@@ -355,8 +388,7 @@ Based on production logs:
 5. Submit a pull request with detailed description
 
 ## License
-
-This project is developed for educational purposes as part of a cybersecurity course. All code should be used responsibly and in accordance with applicable laws and regulations.
+MIT License
 
 ## Support
 
@@ -365,5 +397,6 @@ For technical issues or questions about the system:
 2. Review the API documentation for endpoint usage
 3. Examine server logs for operational issues
 4. Consult the security documentation for threat mitigation
+5. Contact us
 
 ---

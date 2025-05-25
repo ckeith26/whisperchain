@@ -363,38 +363,6 @@ const FlaggedMessages = () => {
     }
   };
 
-  const handleSuspendUser = async () => {
-    if (!selected || !selected.recipient || !selected.recipient.uid) {
-      toast.error("Cannot identify user to suspend");
-      return;
-    }
-
-    try {
-      setActionType("suspend_user");
-
-      // Call API to suspend the user
-      await axios.post(
-        `${API_URL}/moderator/suspendUser`,
-        {
-          userId: selected.recipient.uid,
-          reason: actionNote || "Suspended via moderation panel",
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      toast.success("User suspended successfully");
-      handleCloseDialog();
-      fetchFlaggedMessages();
-      fetchFlaggedMessageCount();
-    } catch (err) {
-      console.error("Failed to suspend user:", err);
-      toast.error(err.response?.data?.error || "Failed to suspend user");
-    } finally {
-      setActionType("");
-    }
-  };
 
   // Show key setup interface if needed
   if (needsKeySetup) {

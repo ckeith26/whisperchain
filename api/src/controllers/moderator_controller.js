@@ -476,63 +476,6 @@ export const moderateMessage = async (req, res) => {
   }
 };
 
-// Suspend a user
-export const suspendUser = async (req, res) => {
-  try {
-    const moderatorId = req.user.uid;
-    const { userId, reason } = req.body;
-
-    if (!userId) {
-      return res.status(400).json({ error: "User ID is required" });
-    }
-
-    // Verify moderator status
-    const moderator = await UserModel.findOne({
-      uid: moderatorId,
-      $or: [{ role: ROLES.MODERATOR }, { role: ROLES.ADMIN }],
-    });
-
-    if (!moderator) {
-      return res
-        .status(403)
-        .json({ error: "You do not have permission to suspend users" });
-    }
-
-    // Find the user to suspend
-    const user = await UserModel.findOne({ uid: userId });
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    // Don't suspend admins
-    if (user.role === ROLES.ADMIN) {
-      return res.status(403).json({ error: "Cannot suspend administrators" });
-    }
-
-    // Set suspension status
-    user.isSuspended = true;
-    await user.save();
-
-    // Log user suspension
-    await new AuditLogModel({
-      actionType: ACTION_TYPES.USER_SUSPENDED,
-      targetId: userId,
-      metadata: {
-        reason: reason || "Suspended by moderator",
-        moderatorId,
-      },
-    }).save();
-
-    return res.json({
-      success: true,
-      message: "User suspended successfully",
-    });
-  } catch (error) {
-    console.error("Error suspending user:", error.message);
-    return res.status(500).json({ error: error.message });
-  }
-};
-
 // Set moderator public key (for encrypting flagged messages)
 export const setModeratorPublicKey = async (req, res) => {
   try {

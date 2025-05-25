@@ -81,7 +81,7 @@ export const assignRole = async (req, res) => {
 
     // Ensure the user is actually pending approval (has requestedRole)
     if (!user.requestedRole) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         error: 'This user is not pending approval. Cannot assign role.',
       });
     }
@@ -110,7 +110,7 @@ export const assignRole = async (req, res) => {
 export const getUsers = async (req, res) => {
   try {
     const allUsers = await UserModel.find({});
-    
+
     // Transform the response to include necessary user information
     const formattedUsers = allUsers.map((user) => ({
       uid: user.uid,
@@ -137,7 +137,7 @@ export const toggleUserSuspension = async (req, res) => {
     // Prevent user suspension for security reasons
     return res.status(403).json({ 
       error: 'User suspension has been disabled for security reasons',
-      success: false
+      success: false,
     });
 
     /* Original code commented out
