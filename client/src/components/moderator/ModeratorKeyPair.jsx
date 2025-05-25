@@ -339,8 +339,8 @@ const ModeratorKeyPair = () => {
           }}
         >
           {moderatorPrivateKey
-            ? "✅ Private key loaded - You can decrypt flagged messages"
-            : "📁 Upload your private key or generate new keys to access flagged messages"}
+            ? "Private key loaded - You can decrypt flagged messages"
+            : "Upload your private key or generate new keys to access flagged messages"}
         </Alert>
       </Paper>
 
