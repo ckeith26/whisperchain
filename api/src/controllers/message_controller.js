@@ -238,10 +238,47 @@ export const flagMessage = async (req, res) => {
         });
       }
 
+      // Look up the sender UID from the sender token
+      let senderUid = 'unknown';
+      if (message.senderToken) {
+        try {
+          console.log('Looking up sender token:', message.senderToken);
+          console.log('Token format matches pattern:', /^msg_\d+_[A-Za-z0-9_-]+$/.test(message.senderToken));
+          
+          const senderToken = await AuthTokenModel.findOne({ token: message.senderToken });
+          if (senderToken) {
+            senderUid = senderToken.uid;
+            console.log('Found sender UID from token:', senderUid);
+          } else {
+            console.log('No token record found for:', message.senderToken);
+            
+            // Debug: Check if any tokens exist at all
+            const tokenCount = await AuthTokenModel.countDocuments({});
+            console.log('Total tokens in database:', tokenCount);
+            
+            // Check for similar tokens (maybe there's a format mismatch)
+            const similarTokens = await AuthTokenModel.find({
+              token: { $regex: message.senderToken.substring(0, 10) }
+            }).limit(3);
+            console.log('Similar tokens found:', similarTokens.map(t => ({ token: t.token, uid: t.uid })));
+            
+            // Check if this exact message token was ever created
+            const exactTokenCheck = await AuthTokenModel.findOne({ 
+              token: message.senderToken 
+            });
+            console.log('Exact token check result:', exactTokenCheck ? 'Found' : 'Not found');
+          }
+        } catch (tokenError) {
+          console.error('Error looking up sender from token:', tokenError);
+        }
+      } else {
+        console.log('No senderToken found on message:', messageId);
+      }
+
       // Create new flagged message entry
       const flaggedMessage = new FlaggedMessageModel({
         originalMessageId: messageId,
-        senderUid: message.senderUid || 'unknown', // Get from token lookup if needed
+        senderUid,
         recipientUid: message.recipientUid,
         serverEncryptedContent,
         flaggedBy: userId,

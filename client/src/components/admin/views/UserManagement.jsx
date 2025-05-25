@@ -362,7 +362,7 @@ const UserManagement = () => {
                               ? 'warning' 
                               : user.role === 'idle'
                                 ? (user.requestedRole ? 'warning' : 'error')
-                                : 'primary'
+                              : 'primary'
                         }
                         sx={user.role === 'idle' && !user.requestedRole ? {
                           bgcolor: 'rgba(255,255,255,0.2)',

@@ -601,7 +601,7 @@ const FlaggedMessages = () => {
                     wordWrap: "break-word",
                     wordBreak: "break-word",
                   }}>
-                    {message.contentPreview || "No preview available"}
+                    {message.moderatorContent ? "Encrypted Content - Click to View" : "No content available"}
                   </TableCell>
                   <TableCell>
                     <IconButton

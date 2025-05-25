@@ -44,8 +44,8 @@ export const getFlaggedMessages = async (req, res) => {
       .limit(limit);
 
     // Get total count for pagination
-    const totalCount = await FlaggedMessageModel.countDocuments({ 
-      moderationStatus: 'pending' 
+    const totalCount = await FlaggedMessageModel.countDocuments({
+      moderationStatus: 'pending',
     });
 
     // Process messages - decrypt server content and re-encrypt for moderator
@@ -53,7 +53,6 @@ export const getFlaggedMessages = async (req, res) => {
       flaggedMessages.map(async (flaggedMsg) => {
         try {
           let moderatorContent = null;
-          let contentPreview = null;
 
           if (flaggedMsg.serverEncryptedContent) {
             try {
@@ -74,21 +73,14 @@ export const getFlaggedMessages = async (req, res) => {
                 }
               }
               
-              // Create preview of the first 30 characters
-              contentPreview = decryptedContent.length > 30 
-                ? decryptedContent.substring(0, 30) + '...'
-                : decryptedContent;
-              
               moderatorContent = encryptWithModeratorKey(decryptedContent, moderator.moderatorPublicKey);
               
             } catch (decryptError) {
               console.error(`Cannot decrypt flagged message ${flaggedMsg._id}:`, decryptError.message);
               moderatorContent = null;
-              contentPreview = 'Unable to decrypt content';
             }
           } else {
             console.log(`No serverEncryptedContent for message ${flaggedMsg._id}`);
-            contentPreview = 'No content available';
           }
 
           // Fetch recipient information
@@ -98,7 +90,6 @@ export const getFlaggedMessages = async (req, res) => {
             messageId: flaggedMsg.originalMessageId,
             flaggedMessageId: flaggedMsg._id,
             content: '', // Don't expose original encrypted content
-            contentPreview, // First 30 characters of decrypted content
             moderatorContent,
             senderUid: flaggedMsg.senderUid,
             recipient: recipient
@@ -123,7 +114,6 @@ export const getFlaggedMessages = async (req, res) => {
             messageId: flaggedMsg.originalMessageId,
             flaggedMessageId: flaggedMsg._id,
             content: '',
-            contentPreview: 'Error loading content',
             moderatorContent: null,
             senderUid: flaggedMsg.senderUid,
             recipient: { uid: flaggedMsg.recipientUid, email: 'Unknown User', displayName: 'Unknown User' },
@@ -161,7 +151,7 @@ export const freezeToken = async (req, res) => {
     const { token } = req.body;
 
     if (!token) {
-      return res.status(400).json({ error: "Token is required" });
+      return res.status(400).json({ error: 'Token is required' });
     }
 
     // Verify moderator permissions
@@ -169,13 +159,13 @@ export const freezeToken = async (req, res) => {
     if (!moderator || moderator.role !== ROLES.MODERATOR) {
       return res
         .status(403)
-        .json({ error: "You do not have permission to freeze tokens" });
+        .json({ error: 'You do not have permission to freeze tokens' });
     }
 
     // Find and freeze the token
     const tokenDoc = await AuthTokenModel.findOne({ token });
     if (!tokenDoc) {
-      return res.status(404).json({ error: "Token not found" });
+      return res.status(404).json({ error: 'Token not found' });
     }
 
     tokenDoc.isFrozen = {
@@ -196,7 +186,7 @@ export const freezeToken = async (req, res) => {
 
     return res.json({
       success: true,
-      message: "Token frozen successfully",
+      message: 'Token frozen successfully',
     });
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -213,11 +203,16 @@ export const getAuditLogs = async (req, res) => {
     if (!moderator || moderator.role !== ROLES.MODERATOR) {
       return res
         .status(403)
-        .json({ error: "You do not have permission to view audit logs" });
+        .json({ error: 'You do not have permission to view audit logs' });
     }
 
     // Parse query parameters for filtering
-    const { actionType, startDate, endDate, limit = 100 } = req.query;
+    const {
+      actionType,
+      startDate,
+      endDate,
+      limit = 100,
+    } = req.query;
 
     const query = {};
     if (actionType) query.actionType = actionType;
@@ -390,11 +385,35 @@ export const moderateMessage = async (req, res) => {
         
       case 'suspend_sender': {
         // Find the sender and suspend them
-        const sender = await UserModel.findOne({ uid: flaggedMessage.senderUid });
+        let senderUid = flaggedMessage.senderUid;
+        
+        // If senderUid is unknown, try to look it up from the original message token
+        if (senderUid === 'unknown' && originalMessage && originalMessage.senderToken) {
+          console.log('SenderUid is unknown, attempting token lookup for:', originalMessage.senderToken);
+          try {
+            const senderToken = await AuthTokenModel.findOne({ token: originalMessage.senderToken });
+            if (senderToken) {
+              senderUid = senderToken.uid;
+              console.log('Successfully resolved senderUid from token:', senderUid);
+              
+              // Update the flagged message record with the correct senderUid
+              flaggedMessage.senderUid = senderUid;
+            } else {
+              console.log('Token not found during fallback lookup');
+            }
+          } catch (tokenError) {
+            console.error('Error during fallback token lookup:', tokenError);
+          }
+        }
+        
+        console.log(`Attempting to suspend sender with UID: ${senderUid}`);
+        const sender = await UserModel.findOne({ uid: senderUid });
         
         if (sender) {
+          console.log(`Found sender user: ${sender.uid} (${sender.email})`);
           sender.isSuspended = true;
           await sender.save();
+          console.log(`Successfully suspended user: ${sender.uid}`);
 
           // Log user suspension
           await new AuditLogModel({
@@ -406,6 +425,11 @@ export const moderateMessage = async (req, res) => {
               moderatorId: userId,
             },
           }).save();
+        } else {
+          console.error(`No user found with UID: ${senderUid}`);
+          return res.status(400).json({ 
+            error: `Cannot suspend user: sender not found (UID: ${senderUid})` 
+          });
         }
 
         // Mark as action taken in flagged messages
@@ -506,132 +530,6 @@ export const suspendUser = async (req, res) => {
   } catch (error) {
     console.error("Error suspending user:", error.message);
     return res.status(500).json({ error: error.message });
-  }
-};
-
-// Add this new function to your existing moderator_controller.js
-export const testAuditLogProtection = async (req, res) => {
-  try {
-    const results = {
-      insert: null,
-      update: null,
-      delete: null,
-      verify: null,
-    };
-
-    // 1. Test insertion (should work)
-    try {
-      const newLog = await AuditLogModel.create({
-        actionType: ACTION_TYPES.USER_CREATED,
-        targetId: "test123",
-        metadata: { test: true },
-      });
-      results.insert = "✅ Successfully created new log";
-
-      // Save the ID for later tests
-      const logId = newLog._id;
-
-      // 2. Test update (should fail)
-      try {
-        await AuditLogModel.updateOne(
-          { _id: logId },
-          { $set: { metadata: { modified: true } } }
-        );
-        results.update = "❌ Update succeeded when it should have failed";
-      } catch (error) {
-        results.update = `✅ Update blocked as expected: ${error.message}`;
-      }
-
-      // 3. Test deletion (should fail)
-      try {
-        await AuditLogModel.deleteOne({ _id: logId });
-        results.delete = "❌ Deletion succeeded when it should have failed";
-      } catch (error) {
-        results.delete = `✅ Deletion blocked as expected: ${error.message}`;
-      }
-
-      // 4. Verify the log is unchanged
-      const verifyLog = await AuditLogModel.findById(logId);
-      results.verify =
-        verifyLog.metadata.test === true
-          ? "✅ Log remains unchanged"
-          : "❌ Log was modified";
-    } catch (error) {
-      results.insert = `❌ Creation failed: ${error.message}`;
-    }
-
-    res.json(results);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// Add these new routes to test audit log protection
-
-// Create a test log
-export const createTestLog = async (req, res) => {
-  try {
-    // Validate the required fields
-    if (!req.body.actionType || !req.body.targetId) {
-      return res.status(400).json({
-        error: "actionType and targetId are required",
-      });
-    }
-
-    // Make sure actionType is valid
-    if (!Object.values(ACTION_TYPES).includes(req.body.actionType)) {
-      return res.status(400).json({
-        error: "Invalid actionType",
-      });
-    }
-
-    // Create the log using the model
-    const log = new AuditLogModel({
-      actionType: req.body.actionType,
-      targetId: req.body.targetId,
-      metadata: req.body.metadata || {},
-      timestamp: new Date(),
-    });
-
-    // Save the log
-    const savedLog = await log.save();
-    res.status(201).json(savedLog);
-  } catch (error) {
-    console.error("Error creating test log:", error);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// Try to modify a log
-export const updateTestLog = async (req, res) => {
-  try {
-    const log = await AuditLogModel.updateOne(
-      { _id: req.params.id },
-      { $set: req.body }
-    );
-    res.json(log);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-};
-
-// Try to delete a log
-export const deleteTestLog = async (req, res) => {
-  try {
-    const log = await AuditLogModel.deleteOne({ _id: req.params.id });
-    res.json(log);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-};
-
-// Get a specific log
-export const getTestLog = async (req, res) => {
-  try {
-    const log = await AuditLogModel.findById(req.params.id);
-    res.json(log);
-  } catch (error) {
-    res.status(404).json({ error: error.message });
   }
 };
 

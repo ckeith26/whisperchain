@@ -121,7 +121,7 @@ router
   .get(
     requireAuth,
     requireModerator,
-    ModeratorController.getFlaggedMessageCount
+    ModeratorController.getFlaggedMessageCount,
   );
 
 router
@@ -146,43 +146,9 @@ router
   .post(
     requireAuth,
     requireModerator,
-    ModeratorController.setModeratorPublicKey
+    ModeratorController.setModeratorPublicKey,
   )
   .get(requireAuth, ModeratorController.getModeratorPublicKey);
-
-// Add this route to test audit log protection
-router.get(
-  '/moderator/test-audit-protection',
-  requireAuth,
-  requireModerator,
-  ModeratorController.testAuditLogProtection
-);
-
-// Add these with your other moderator routes
-router.post(
-  '/moderator/auditLogs',
-  requireAuth,
-  requireModerator,
-  ModeratorController.createTestLog
-);
-router.put(
-  '/moderator/auditLogs/:id',
-  requireAuth,
-  requireModerator,
-  ModeratorController.updateTestLog
-);
-router.delete(
-  '/moderator/auditLogs/:id',
-  requireAuth,
-  requireModerator,
-  ModeratorController.deleteTestLog
-);
-router.get(
-  '/moderator/auditLogs/:id',
-  requireAuth,
-  requireModerator,
-  ModeratorController.getTestLog
-);
 
 // Crypto routes (public endpoints for key exchange)
 router.route('/crypto/serverPublicKey').get(CryptoController.getServerPublicKey);

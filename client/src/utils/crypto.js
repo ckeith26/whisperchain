@@ -1,5 +1,5 @@
 /**
- * Utility functions for cryptographic operations
+ * Utility functions for cryptographic operations - RSA only
  */
 
 /**
@@ -65,7 +65,7 @@ export const generateKeyPair = async () => {
  */
 export const encryptMessage = async (message, recipientPublicKeyBase64) => {
   try {
-    console.log("Encrypting message with chunked RSA, length:", message.length);
+    console.log("Encrypting message with RSA, length:", message.length);
 
     // Convert base64 public key back to CryptoKey
     const publicKeyBuffer = Uint8Array.from(
@@ -121,14 +121,13 @@ export const encryptMessage = async (message, recipientPublicKeyBase64) => {
       return result;
     }
   } catch (error) {
-    console.error("Chunked RSA encryption error:", error);
+    console.error("RSA encryption error:", error);
     throw new Error("Failed to encrypt message");
   }
 };
 
 /**
- * Decrypts a message using the user's private key
- * Handles both hybrid encryption (AES + RSA) and legacy RSA-only formats
+ * Decrypts a message using the user's private key with RSA-only decryption
  * @param {string} encryptedMessageBase64 - Encrypted message in base64
  * @returns {Promise<string>} Decrypted message
  */
@@ -159,110 +158,13 @@ export const decryptMessage = async (encryptedMessageBase64) => {
       ["decrypt"]
     );
 
-    // Check if the message looks like hybrid format by checking for colons after base64 decode
-    let isHybridFormat = false;
-    try {
-      const decoded = atob(encryptedMessageBase64);
-      const parts = decoded.split(':');
-      isHybridFormat = parts.length === 3;
-      console.log("User message format analysis:", { isHybridFormat, partsCount: parts.length });
-    } catch (e) {
-      console.log("Could not decode base64 for format check");
-    }
-
-    // First, try to decrypt as hybrid format (new system)
-    if (isHybridFormat) {
-      try {
-        console.log("Attempting hybrid decryption for user message...");
-        const result = await decryptHybridUserMessage(encryptedMessageBase64, privateKey);
-        console.log("Hybrid decryption successful for user message!");
-        return result;
-      } catch (hybridError) {
-        console.log("Hybrid decryption failed for user message:", hybridError.message);
-      }
-    }
-
-    // Fall back to legacy RSA decryption
-    try {
-      console.log("Attempting legacy RSA decryption for user message...");
-      const encryptedBuffer = Uint8Array.from(atob(encryptedMessageBase64), (c) =>
-        c.charCodeAt(0)
-      );
-      const decryptedBuffer = await window.crypto.subtle.decrypt(
-        { name: "RSA-OAEP" },
-        privateKey,
-        encryptedBuffer
-      );
-
-      // Convert back to text
-      const decoder = new TextDecoder();
-      const result = decoder.decode(decryptedBuffer);
-      console.log("Legacy RSA decryption successful for user message!");
-      return result;
-    } catch (legacyError) {
-      console.error("Both hybrid and legacy decryption failed for user message:", legacyError.message);
-      throw new Error("Failed to decrypt message with any available method");
-    }
+    // Decrypt using RSA
+    const result = await decryptRSAMessage(encryptedMessageBase64, privateKey);
+    console.log("RSA decryption successful for user message!");
+    return result;
   } catch (error) {
     console.error("User message decryption error:", error);
     throw new Error("Failed to decrypt message");
-  }
-};
-
-/**
- * Decrypts a hybrid encrypted user message (AES + RSA format)
- * @param {string} encryptedMessageBase64 - Base64 encoded hybrid encrypted message
- * @param {CryptoKey} privateKey - RSA private key for decryption
- * @returns {Promise<string>} Decrypted message
- */
-const decryptHybridUserMessage = async (encryptedMessageBase64, privateKey) => {
-  console.log("Hybrid user message decryption starting...");
-  
-  // Decode the base64 message
-  const hybridMessage = atob(encryptedMessageBase64);
-  
-  // Parse the hybrid format: encryptedAESKey:iv:encryptedData
-  const parts = hybridMessage.split(':');
-  if (parts.length !== 3) {
-    throw new Error(`Invalid hybrid message format - expected 3 parts, got ${parts.length}`);
-  }
-
-  const [encryptedAESKeyBase64, ivBase64, encryptedDataBase64] = parts;
-
-  try {
-    // Decrypt the AES key using RSA
-    const encryptedAESKeyBuffer = Uint8Array.from(atob(encryptedAESKeyBase64), c => c.charCodeAt(0));
-    const aesKeyBuffer = await window.crypto.subtle.decrypt(
-      { name: "RSA-OAEP" },
-      privateKey,
-      encryptedAESKeyBuffer
-    );
-
-    // Import the AES key
-    const aesKey = await window.crypto.subtle.importKey(
-      "raw",
-      aesKeyBuffer,
-      { name: "AES-CBC" },
-      false,
-      ["decrypt"]
-    );
-
-    // Decrypt the data using AES
-    const iv = Uint8Array.from(atob(ivBase64), c => c.charCodeAt(0));
-    const encryptedData = Uint8Array.from(atob(encryptedDataBase64), c => c.charCodeAt(0));
-    
-    const decryptedBuffer = await window.crypto.subtle.decrypt(
-      { name: "AES-CBC", iv },
-      aesKey,
-      encryptedData
-    );
-
-    // Convert back to text
-    const decoder = new TextDecoder();
-    return decoder.decode(decryptedBuffer);
-  } catch (error) {
-    console.error("Hybrid user message decryption step failed:", error);
-    throw error;
   }
 };
 
@@ -295,7 +197,7 @@ export const getServerPublicKey = async () => {
  */
 export const encryptForModerator = async (message) => {
   try {
-    // Get server's public key instead of using hardcoded moderator key
+    // Get server's public key
     const serverPublicKey = await getServerPublicKey();
 
     // Convert base64 public key back to CryptoKey
@@ -314,8 +216,6 @@ export const encryptForModerator = async (message) => {
     );
 
     // Calculate max chunk size for RSA-OAEP with SHA-256
-    // RSA-OAEP with SHA-256 can encrypt at most (keySize - 2*hashSize - 2) bytes
-    // For 2048-bit key with SHA-256: 2048/8 - 2*32 - 2 = 190 bytes
     const maxChunkSize = 190;
     const encoder = new TextEncoder();
     const messageBuffer = encoder.encode(message);
@@ -352,8 +252,7 @@ export const encryptForModerator = async (message) => {
 };
 
 /**
- * Decrypts a message using the moderator's private key
- * Handles both hybrid encryption (AES + RSA) and legacy RSA-only formats
+ * Decrypts a message using the moderator's private key with RSA-only decryption
  * @param {string} encryptedMessageBase64 - Encrypted message in base64
  * @returns {Promise<string>} Decrypted message
  */
@@ -361,7 +260,7 @@ export const decryptAsModerator = async (encryptedMessageBase64) => {
   try {
     console.log("Decrypting moderator message:", encryptedMessageBase64.substring(0, 100) + "...");
     
-    // Get moderator's private key from localStorage (like user approach)
+    // Get moderator's private key from localStorage
     const moderatorPrivateKey = localStorage.getItem("moderatorPrivateKey");
     if (!moderatorPrivateKey) {
       throw new Error(
@@ -384,39 +283,10 @@ export const decryptAsModerator = async (encryptedMessageBase64) => {
       ["decrypt"]
     );
 
-    // Check if the message looks like hybrid format by checking for colons after base64 decode
-    let isHybridFormat = false;
-    try {
-      const decoded = atob(encryptedMessageBase64);
-      const parts = decoded.split(':');
-      isHybridFormat = parts.length === 3;
-      console.log("Message format analysis:", { isHybridFormat, partsCount: parts.length });
-    } catch (e) {
-      console.log("Could not decode base64 for format check");
-    }
-
-    // First, try to decrypt as hybrid format (new system)
-    if (isHybridFormat) {
-      try {
-        console.log("Attempting hybrid decryption...");
-        const result = await decryptHybridMessage(encryptedMessageBase64, cryptoKey);
-        console.log("Hybrid decryption successful!");
-        return result;
-      } catch (hybridError) {
-        console.log("Hybrid decryption failed:", hybridError.message);
-      }
-    }
-    
-    // Fall back to legacy RSA decryption
-    try {
-      console.log("Attempting legacy RSA decryption...");
-      const result = await decryptLegacyRSAMessage(encryptedMessageBase64, cryptoKey);
-      console.log("Legacy RSA decryption successful!");
-      return result;
-    } catch (legacyError) {
-      console.error("Legacy RSA decryption failed:", legacyError.message);
-      throw new Error("Failed to decrypt message with any available method");
-    }
+    // Decrypt using RSA
+    const result = await decryptRSAMessage(encryptedMessageBase64, cryptoKey);
+    console.log("RSA decryption successful for moderator!");
+    return result;
   } catch (error) {
     console.error("Moderator decryption error:", error);
     throw new Error("Failed to decrypt message as moderator");
@@ -424,90 +294,13 @@ export const decryptAsModerator = async (encryptedMessageBase64) => {
 };
 
 /**
- * Decrypts a hybrid encrypted message (AES + RSA format)
- * @param {string} encryptedMessageBase64 - Base64 encoded hybrid encrypted message
- * @param {CryptoKey} privateKey - RSA private key for decryption
- * @returns {Promise<string>} Decrypted message
- */
-const decryptHybridMessage = async (encryptedMessageBase64, privateKey) => {
-  console.log("Hybrid decryption starting...");
-  
-  // Decode the base64 message
-  const hybridMessage = atob(encryptedMessageBase64);
-  console.log("Decoded hybrid message length:", hybridMessage.length);
-  
-  // Parse the hybrid format: encryptedAESKey:iv:encryptedData
-  const parts = hybridMessage.split(':');
-  console.log("Hybrid message parts:", parts.length);
-  
-  if (parts.length !== 3) {
-    throw new Error(`Invalid hybrid message format - expected 3 parts, got ${parts.length}`);
-  }
-
-  const [encryptedAESKeyBase64, ivBase64, encryptedDataBase64] = parts;
-  console.log("Parts lengths:", {
-    aesKey: encryptedAESKeyBase64.length,
-    iv: ivBase64.length, 
-    data: encryptedDataBase64.length
-  });
-
-  try {
-    // Decrypt the AES key using RSA
-    const encryptedAESKeyBuffer = Uint8Array.from(atob(encryptedAESKeyBase64), c => c.charCodeAt(0));
-    console.log("Encrypted AES key buffer length:", encryptedAESKeyBuffer.length);
-    
-    const aesKeyBuffer = await window.crypto.subtle.decrypt(
-      { name: "RSA-OAEP" },
-      privateKey,
-      encryptedAESKeyBuffer
-    );
-    console.log("Decrypted AES key length:", aesKeyBuffer.byteLength);
-
-    // Import the AES key (256-bit key for AES-256-CBC)
-    const aesKey = await window.crypto.subtle.importKey(
-      "raw",
-      aesKeyBuffer,
-      { name: "AES-CBC" },
-      false,
-      ["decrypt"]
-    );
-    console.log("AES key imported successfully");
-
-    // Decrypt the data using AES
-    const iv = Uint8Array.from(atob(ivBase64), c => c.charCodeAt(0));
-    const encryptedData = Uint8Array.from(atob(encryptedDataBase64), c => c.charCodeAt(0));
-    
-    console.log("AES decryption params:", {
-      ivLength: iv.length,
-      dataLength: encryptedData.length
-    });
-    
-    const decryptedBuffer = await window.crypto.subtle.decrypt(
-      { name: "AES-CBC", iv },
-      aesKey,
-      encryptedData
-    );
-    console.log("AES decryption successful, buffer length:", decryptedBuffer.byteLength);
-
-    // Convert back to text
-    const decoder = new TextDecoder();
-    const result = decoder.decode(decryptedBuffer);
-    console.log("Final decrypted text length:", result.length);
-    return result;
-  } catch (error) {
-    console.error("Hybrid decryption step failed:", error);
-    throw error;
-  }
-};
-
-/**
- * Decrypts a legacy RSA-only encrypted message
+ * Decrypts an RSA-encrypted message (supports both single chunk and multi-chunk)
  * @param {string} encryptedMessageBase64 - Base64 encoded RSA encrypted message
  * @param {CryptoKey} privateKey - RSA private key for decryption
  * @returns {Promise<string>} Decrypted message
  */
-const decryptLegacyRSAMessage = async (encryptedMessageBase64, privateKey) => {
-  console.log("Legacy RSA decryption input length:", encryptedMessageBase64.length);
+const decryptRSAMessage = async (encryptedMessageBase64, privateKey) => {
+  console.log("RSA decryption input length:", encryptedMessageBase64.length);
   
   try {
     // First try direct RSA decryption (most common case)
@@ -570,7 +363,7 @@ const decryptLegacyRSAMessage = async (encryptedMessageBase64, privateKey) => {
       }
     }
   } catch (error) {
-    console.error("All legacy RSA decryption methods failed:", error);
+    console.error("RSA decryption failed:", error);
     throw error;
   }
 };
