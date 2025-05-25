@@ -4,6 +4,9 @@ by Cameron Keith and Jacob Zhang
 
 ### COSC 55: Security and Privacy Lab 2
 
+Spring 2025
+
+Professor Sami Saydjari, Mohamed Moustafa Dawoud
 
 
 ## Project Overview
