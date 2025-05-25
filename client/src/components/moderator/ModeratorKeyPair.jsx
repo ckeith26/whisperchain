@@ -26,14 +26,12 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import useStore from "../../store";
 import KeyIcon from "@mui/icons-material/Key";
 import SecurityIcon from "@mui/icons-material/Security";
-import DeleteIcon from "@mui/icons-material/Delete";
-import DownloadIcon from "@mui/icons-material/Download";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import WarningIcon from "@mui/icons-material/Warning";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
-
+import { generateKeyPair } from "../../utils/crypto";
 const API_URL = import.meta.env.VITE_API_URL;
 
 const ModeratorKeyPair = () => {
@@ -66,41 +64,6 @@ const ModeratorKeyPair = () => {
       }
     } catch (error) {
       setServerKeySet(false);
-    }
-  };
-
-  const generateKeys = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Generate new key pair
-      const newKeyPair = await generateKeyPair();
-      
-      // Store only private key in localStorage (consistent with user approach)
-      localStorage.setItem('moderatorPrivateKey', newKeyPair.privateKey);
-      setModeratorPrivateKey(newKeyPair.privateKey);
-
-      // Upload public key to server
-      await axios.post(
-        `${API_URL}/moderator/public-key`,
-        { publicKey: newKeyPair.publicKey },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      // Download private key file
-      downloadPrivateKey(newKeyPair.privateKey);
-      
-      setPublicKey(newKeyPair.publicKey);
-      setServerKeySet(true);
-      toast.success("Key pair generated successfully! Private key downloaded.");
-      
-    } catch (error) {
-      console.error('Error generating keys:', error);
-      setError(error.response?.data?.error || 'Failed to generate keys');
-      toast.error("Failed to generate keys. Please try again.");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -215,6 +178,43 @@ const ModeratorKeyPair = () => {
     };
     
     reader.readAsText(file);
+  };
+
+  const generateKeys = async () => {
+    try {
+      setLoading(true);
+      
+      // Generate new key pair
+      const keyPair = await generateKeyPair();
+      
+      // Store only private key in localStorage (like user approach)
+      localStorage.setItem('moderatorPrivateKey', keyPair.privateKey);
+      setModeratorPrivateKey(keyPair.privateKey);
+      
+      // Upload public key to server
+      await axios.post(
+        `${API_URL}/moderator/public-key`,
+        { publicKey: keyPair.publicKey },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Download private key file
+      downloadPrivateKey(keyPair.privateKey);
+      
+      setPublicKey(keyPair.publicKey);
+      setServerKeySet(true);
+      toast.success("Key pair generated successfully! Private key downloaded.");
+      
+      // Check server status to update UI
+      checkServerKeyStatus();
+      
+    } catch (error) {
+      console.error("Error generating keys:", error);
+      toast.error("Failed to generate keys. Please try again.");
+      setError("Failed to generate keys. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDeleteKeys = () => {
