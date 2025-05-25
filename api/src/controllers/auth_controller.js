@@ -105,16 +105,33 @@ export const register = async (req, res) => {
     // Use provided name or generate from email
     const userName = name || email.split('@')[0];
 
+    // Determine user role based on registration
+    let userRole;
+    let requestedRole = null;
+    let requiresApproval = false;
+
+    if (role === 'moderator') {
+      // Moderators require admin approval
+      userRole = ROLES.IDLE;
+      requestedRole = ROLES.MODERATOR;
+      requiresApproval = true;
+    } else {
+      // Regular users are approved immediately
+      userRole = ROLES.USER;
+      requestedRole = null;
+      requiresApproval = false;
+    }
+
     // Create a new user - do NOT hash the password here, let the pre-save hook do it
     const user = new UserModel({
       uid,
       email,
       name: userName,
       password, // Plain password, will be hashed by the pre-save hook
-      role: ROLES.IDLE, // Always start as IDLE for admin approval
-      requestedRole: (role === 'user' || role === 'moderator') ? role : ROLES.USER, // Store what they requested
-      requestedAt: new Date(),
-      roleHistory: [{ role: ROLES.IDLE, changedAt: new Date() }],
+      role: userRole,
+      requestedRole,
+      requestedAt: requiresApproval ? new Date() : null,
+      roleHistory: [{ role: userRole, changedAt: new Date() }],
       accountCreatedAt: new Date(),
     });
 
@@ -133,25 +150,22 @@ export const register = async (req, res) => {
     await new AuditLogModel({
       actionType: ACTION_TYPES.USER_CREATED,
       targetId: uid,
-      metadata: { name: userName, email, requestedRole: savedUser.requestedRole },
+      metadata: { name: userName, email, requestedRole: savedUser.requestedRole || 'user' },
     }).save();
 
-    // All users start in IDLE status and require admin approval
-    if (savedUser.role === ROLES.IDLE) {
-      const roleMessage = savedUser.requestedRole === 'moderator'
-        ? 'Your moderator request is awaiting admin approval. Please wait until an admin approves your request before logging in.'
-        : 'Your account is awaiting admin approval. Please wait until an admin approves your request before logging in.';
-
-      console.log('User registration pending approval:', email, 'requested role:', savedUser.requestedRole);
+    // Handle different registration outcomes
+    if (requiresApproval && savedUser.role === ROLES.IDLE) {
+      // Moderator requests require approval
+      console.log('Moderator registration pending approval:', email);
       return res.status(201).json({
         success: true,
-        message: `Registration successful. ${roleMessage}`,
+        message: 'Registration successful. Your moderator request is awaiting admin approval. Please wait until an admin approves your request before logging in.',
         requiresApproval: true,
         requestedRole: savedUser.requestedRole,
       });
     }
 
-    // This code should never be reached since all users start as IDLE, but kept for safety
+    // Regular users are immediately active - create token and log them in
     const timestamp = Math.floor(Date.now() / 1000);
     const token = jwt.encode({
       sub: uid,
@@ -160,6 +174,7 @@ export const register = async (req, res) => {
       role: savedUser.role,
     }, JWT_SECRET);
 
+    console.log('User registration successful and logged in:', email);
     return res.status(201).json({
       success: true,
       message: 'Registration successful',
@@ -243,7 +258,7 @@ export const login = async (req, res) => {
 
         const attemptsRemaining = 5 - user.failedLoginAttempts;
         if (attemptsRemaining <= 0) {
-          return res.status(423).json({ 
+          return res.status(423).json({
             error: 'Account has been temporarily locked due to too many failed login attempts. Please try again in 5 minutes.',
             accountLocked: true,
           });
@@ -259,7 +274,7 @@ export const login = async (req, res) => {
       await user.resetFailedAttempts();
     } catch (compareError) {
       console.error('Error during password comparison:', compareError.message);
-      return res.status(500).json({ error: 'Error comparing passwords: ' + compareError.message });
+      return res.status(500).json({ error: `Error comparing passwords: ${compareError.message}` });
     }
 
     // If verification code is provided, verify it
@@ -362,6 +377,13 @@ export const generateKeyPair = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Check if user already has a public key - prevent regeneration
+    if (user.publicKey) {
+      return res.status(400).json({
+        error: 'Key pair already exists. Cannot regenerate existing keys for security reasons.',
+      });
+    }
+
     // The actual key generation should happen on the frontend for security
     // The backend only stores the public key
     const { publicKey } = req.body;
@@ -456,6 +478,7 @@ export const getUserProfile = async (req, res) => {
       email: user.email,
       role: user.role,
       publicKey: user.publicKey,
+      hasKeyPair: !!user.publicKey,
     });
   } catch (error) {
     return res.status(500).json({ error: error.message });

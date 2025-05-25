@@ -67,7 +67,17 @@ export default function CryptoTest() {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const key = e.target.result;
+        const key = e.target.result.trim();
+        
+        // Updated validation - check for either PEM format or raw base64 format
+        const isPEMFormat = key.includes('BEGIN PRIVATE KEY') || key.includes('BEGIN RSA PRIVATE KEY');
+        const isBase64Format = /^[A-Za-z0-9+/]+=*$/.test(key) && key.length > 100;
+        
+        if (!isPEMFormat && !isBase64Format) {
+          setError("Invalid private key file format. Please upload a valid private key file (.txt, .pem, or .key).");
+          return;
+        }
+
         localStorage.setItem("privateKey", key);
         setPrivateKey(key);
         setError("");

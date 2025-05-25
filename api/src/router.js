@@ -5,6 +5,7 @@ import * as AdminController from './controllers/admin_controller';
 import * as AuthController from './controllers/auth_controller';
 import * as MessageController from './controllers/message_controller';
 import * as ModeratorController from './controllers/moderator_controller';
+import * as CryptoController from './controllers/crypto_controller';
 import {
   requireAuth,
   requireAdmin,
@@ -182,5 +183,8 @@ router.get(
   requireModerator,
   ModeratorController.getTestLog
 );
+
+// Crypto routes (public endpoints for key exchange)
+router.route('/crypto/serverPublicKey').get(CryptoController.getServerPublicKey);
 
 export default router;

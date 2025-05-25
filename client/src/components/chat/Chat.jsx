@@ -335,12 +335,18 @@ const Chat = ({ view }) => {
       });
 
       if (result.success) {
+        // Clear form on success - toast notification is handled by userSlice
         setNewMessage("");
         setRecipient("");
+        setError(""); // Clear any previous errors
+      } else {
+        // Only show error if userSlice didn't handle it with toast
+        setError(result.message || "Failed to send message");
       }
     } catch (err) {
       console.error("Error sending message:", err);
-      setError("Failed to send message: " + err.message);
+      // Only show local error for encryption/validation issues
+      setError("Failed to prepare message: " + err.message);
     } finally {
       setSending(false);
     }
@@ -462,7 +468,17 @@ const Chat = ({ view }) => {
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        const key = e.target.result;
+        const key = e.target.result.trim();
+        
+        // Updated validation - check for either PEM format or raw base64 format
+        const isPEMFormat = key.includes('BEGIN PRIVATE KEY') || key.includes('BEGIN RSA PRIVATE KEY');
+        const isBase64Format = /^[A-Za-z0-9+/]+=*$/.test(key) && key.length > 100;
+        
+        if (!isPEMFormat && !isBase64Format) {
+          setDecryptError("Invalid private key file format. Please upload a valid private key file (.txt, .pem, or .key).");
+          return;
+        }
+
         localStorage.setItem("privateKey", key);
         setPrivateKey(key);
         setDecryptError("");
@@ -740,6 +756,11 @@ const Chat = ({ view }) => {
                                     display: "block",
                                     my: 1,
                                     color: "white",
+                                    wordWrap: "break-word",
+                                    wordBreak: "break-word",
+                                    whiteSpace: "pre-wrap",
+                                    maxWidth: "100%",
+                                    minHeight: "auto",
                                   }}
                                 >
                                   {privateKey ? (
@@ -983,6 +1004,11 @@ const Chat = ({ view }) => {
                                       display: "block",
                                       my: 1,
                                       color: "white",
+                                      wordWrap: "break-word",
+                                      wordBreak: "break-word",
+                                      whiteSpace: "pre-wrap",
+                                      maxWidth: "100%",
+                                      minHeight: "auto",
                                     }}
                                   >
                                     {privateKey ? (
@@ -1286,6 +1312,11 @@ const Chat = ({ view }) => {
                                     display: "block",
                                     my: 1,
                                     color: "white",
+                                    wordWrap: "break-word",
+                                    wordBreak: "break-word",
+                                    whiteSpace: "pre-wrap",
+                                    maxWidth: "100%",
+                                    minHeight: "auto",
                                   }}
                                 >
                                   {message.content}

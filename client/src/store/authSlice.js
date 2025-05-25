@@ -314,8 +314,20 @@ const authSlice = (set, get) => ({
   // Generate key pair for secure messaging
   generateKeyPair: async () => {
     try {
+      // Check if user already has a key pair
+      const currentUser = get().authSlice.user;
+      if (currentUser?.hasKeyPair || currentUser?.publicKey) {
+        return { 
+          success: false, 
+          message: "Key pair already exists. Cannot regenerate existing keys for security reasons." 
+        };
+      }
+
       // Generate key pair using Web Crypto API
-      const { publicKey } = await generateCryptoKeyPair();
+      const { publicKey, privateKey } = await generateCryptoKeyPair();
+
+      // Store private key in localStorage
+      localStorage.setItem("privateKey", privateKey);
 
       // Send public key to server
       const token = get().authSlice.token;
@@ -325,15 +337,20 @@ const authSlice = (set, get) => ({
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
+      // Update user state
       set((state) => {
         state.authSlice.user = {
           ...state.authSlice.user,
+          publicKey,
           hasKeyPair: true,
         };
       });
 
-      toast.success("Key pair generated successfully");
-      return { success: true, keyPair: response.data };
+      return { 
+        success: true, 
+        keyPair: { publicKey, privateKey },
+        message: "Key pair generated successfully"
+      };
     } catch (error) {
       console.error("Error generating key pair:", error);
       const message =

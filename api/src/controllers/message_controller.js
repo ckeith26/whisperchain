@@ -1,8 +1,10 @@
 import { nanoid } from "nanoid";
-import UserModel, { ROLES } from "../models/user_model";
-import MessageModel from "../models/message_model";
-import AuthTokenModel from "../models/auth_token_model";
-import AuditLogModel, { ACTION_TYPES } from "../models/audit_log_model";
+import UserModel, { ROLES } from "../models/user_model.js";
+import MessageModel from "../models/message_model.js";
+import AuthTokenModel from "../models/auth_token_model.js";
+import AuditLogModel, { ACTION_TYPES } from "../models/audit_log_model.js";
+import FlaggedMessageModel from '../models/flagged_message_model.js';
+import { encryptWithServerKey } from '../utils/crypto.js';
 
 // Send a message with authentication token
 export const sendMessage = async (req, res) => {
@@ -153,60 +155,108 @@ export const flagMessage = async (req, res) => {
     const { messageId, unflag, moderatorContent } = req.body;
 
     if (!messageId) {
-      return res.status(400).json({ error: "Message ID is required" });
+      return res.status(400).json({ error: 'Message ID is required' });
     }
 
     // Verify user has permission to flag messages
     const user = await UserModel.findOne({ uid: userId });
-    if (!user || (user.role !== ROLES.USER && user.role !== ROLES.ADMIN)) {
+    if (!user || (user.role !== ROLES.USER)) {
       return res
         .status(403)
-        .json({ error: "You do not have permission to flag messages" });
+        .json({ error: 'You do not have permission to flag messages' });
     }
 
-    // Find the message
+    // Find the original message
     const message = await MessageModel.findOne({ messageId });
     if (!message) {
-      return res.status(404).json({ error: "Message not found" });
+      return res.status(404).json({ error: 'Message not found' });
     }
 
     // Verify the user is the recipient of this message
     if (message.recipientUid !== userId) {
       return res
         .status(403)
-        .json({ error: "You can only flag messages sent to you" });
+        .json({ error: 'You can only flag messages sent to you' });
     }
 
-    // Update the flag status based on request
     if (unflag) {
-      // Unflag the message
-      message.isFlagged = {
-        status: false,
-        timestamp: null,
-        modUid: null,
-      };
-      await message.save();
-
-      // Log unflagging action
-      await new AuditLogModel({
-        actionType: ACTION_TYPES.MESSAGE_UNFLAGGED,
-        targetId: messageId,
-      }).save();
-
-      return res.json({
-        success: true,
-        message: "Message flag removed",
+      // Remove from flagged messages collection
+      const existingFlaggedMessage = await FlaggedMessageModel.findOne({ 
+        originalMessageId: messageId,
+        flaggedBy: userId 
       });
+      
+      if (existingFlaggedMessage) {
+        await FlaggedMessageModel.deleteOne({ _id: existingFlaggedMessage._id });
+        
+        // Update original message flag status
+        message.isFlagged = {
+          status: false,
+          timestamp: null,
+          modUid: null,
+        };
+        await message.save();
+
+        // Log unflagging action
+        await new AuditLogModel({
+          actionType: ACTION_TYPES.MESSAGE_UNFLAGGED,
+          targetId: messageId,
+        }).save();
+
+        return res.json({
+          success: true,
+          message: 'Message flag removed',
+        });
+      } else {
+        return res.status(404).json({ error: 'Flagged message not found' });
+      }
     } else {
-      // Flag the message
+      // Check if already flagged by this user
+      const existingFlaggedMessage = await FlaggedMessageModel.findOne({ 
+        originalMessageId: messageId,
+        flaggedBy: userId 
+      });
+      
+      if (existingFlaggedMessage) {
+        return res.status(400).json({ error: 'Message already flagged' });
+      }
+
+      // Encrypt the moderator content with server key
+      if (!moderatorContent) {
+        return res.status(400).json({ 
+          error: 'Message content is required for flagging' 
+        });
+      }
+      
+      let serverEncryptedContent;
+      try {
+        serverEncryptedContent = encryptWithServerKey(moderatorContent);
+      } catch (error) {
+        console.error('Error encrypting moderator content:', error);
+        return res.status(500).json({ 
+          error: 'Failed to encrypt message content for moderators. Please try again.' 
+        });
+      }
+
+      // Create new flagged message entry
+      const flaggedMessage = new FlaggedMessageModel({
+        originalMessageId: messageId,
+        senderUid: message.senderUid || 'unknown', // Get from token lookup if needed
+        recipientUid: message.recipientUid,
+        serverEncryptedContent,
+        flaggedBy: userId,
+        originalSentAt: message.sentAt,
+        moderationStatus: 'pending',
+      });
+
+      await flaggedMessage.save();
+
+      // Update original message flag status
       message.isFlagged = {
         status: true,
         timestamp: new Date(),
         modUid: null, // Will be updated when a moderator reviews it
       };
-      if (moderatorContent) {
-        message.moderatorContent = moderatorContent;
-      }
       await message.save();
 
       // Log flagging action
@@ -217,10 +267,12 @@ export const flagMessage = async (req, res) => {
 
       return res.json({
         success: true,
-        message: "Message flagged for review",
+        message: 'Message flagged for review',
+        flaggedMessageId: flaggedMessage._id,
       });
     }
   } catch (error) {
+    console.error('Error flagging message:', error);
     return res.status(500).json({ error: error.message });
   }
 };

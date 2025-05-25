@@ -64,25 +64,28 @@ const Profile = () => {
     try {
       const result = await generateKeyPair();
       if (result.success) {
-        // Prompt user to download their private key
-        const privateKey = localStorage.getItem("privateKey");
-        if (privateKey) {
+        // Download the private key automatically
+        if (result.keyPair?.privateKey) {
           const element = document.createElement("a");
-          const file = new Blob([privateKey], { type: "text/plain" });
+          const file = new Blob([result.keyPair.privateKey], { type: "text/plain" });
           element.href = URL.createObjectURL(file);
           element.download = "whisperchain_private_key.txt";
           document.body.appendChild(element);
           element.click();
           document.body.removeChild(element);
+          URL.revokeObjectURL(element.href);
 
           toast.success(
-            "Key pair generated! Your private key has been downloaded. Please keep it safe!"
+            "Key pair generated successfully! Your private key has been downloaded. Please keep it safe!"
           );
+        } else {
+          toast.success(result.message || "Key pair generated successfully");
         }
       } else {
         toast.error(result.message || "Failed to generate key pair");
       }
     } catch (error) {
+      console.error("Error generating key pair:", error);
       toast.error("Error generating key pair");
     } finally {
       setGenerating(false);
