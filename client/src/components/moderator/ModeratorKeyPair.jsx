@@ -20,7 +20,9 @@ import {
 } from "@mui/material";
 import { toast } from "react-toastify";
 import axios from "axios";
-import { generateKeyPair } from "../../utils/crypto";
+import UploadIcon from "@mui/icons-material/Upload";
+import DownloadIcon from "@mui/icons-material/Download";
+import DeleteIcon from "@mui/icons-material/Delete";
 import useStore from "../../store";
 import KeyIcon from "@mui/icons-material/Key";
 import SecurityIcon from "@mui/icons-material/Security";
@@ -242,6 +244,13 @@ const ModeratorKeyPair = () => {
       return `${key.substring(0, 30)}...${key.substring(key.length - 20)}`;
     }
     return key;
+  };
+
+  const handleRemoveKey = () => {
+    localStorage.removeItem("moderatorKeyPair");
+    setKeyPair(null);
+    setError(null);
+    toast.success("Moderator key pair removed");
   };
 
   return (
