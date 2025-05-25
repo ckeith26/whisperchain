@@ -58,12 +58,12 @@ export const getFlaggedMessages = async (req, res) => {
             try {
               // Decrypt with server key and re-encrypt for this specific moderator
               let decryptedContent = decryptWithServerKeyCompat(flaggedMsg.serverEncryptedContent);
-              
+
               // Check if the result is still encrypted (double encryption case)
               const looksLikeEncrypted = (content) => {
                 return content.length > 50 && content.length < 2000 && /^[A-Za-z0-9+/=]+$/.test(content);
               };
-              
+
               if (looksLikeEncrypted(decryptedContent)) {
                 try {
                   const doubleDecrypted = decryptWithServerKeyCompat(decryptedContent);
@@ -72,9 +72,9 @@ export const getFlaggedMessages = async (req, res) => {
                   // Use first decryption result if second fails
                 }
               }
-              
+
               moderatorContent = encryptWithModeratorKey(decryptedContent, moderator.moderatorPublicKey);
-              
+
             } catch (decryptError) {
               console.error(`Cannot decrypt flagged message ${flaggedMsg._id}:`, decryptError.message);
               moderatorContent = null;

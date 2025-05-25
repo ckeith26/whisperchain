@@ -1,8 +1,8 @@
-import { nanoid } from "nanoid";
-import UserModel, { ROLES } from "../models/user_model.js";
-import MessageModel from "../models/message_model.js";
-import AuthTokenModel from "../models/auth_token_model.js";
-import AuditLogModel, { ACTION_TYPES } from "../models/audit_log_model.js";
+import { nanoid } from 'nanoid';
+import UserModel, { ROLES } from '../models/user_model.js';
+import MessageModel from '../models/message_model.js';
+import AuthTokenModel from '../models/auth_token_model.js';
+import AuditLogModel, { ACTION_TYPES } from '../models/audit_log_model.js';
 import FlaggedMessageModel from '../models/flagged_message_model.js';
 import { encryptWithServerKey } from '../utils/crypto.js';
 
@@ -12,7 +12,7 @@ export const sendMessage = async (req, res) => {
     const { recipientUid, encryptedMessage } = req.body;
     if (!recipientUid || !encryptedMessage) {
       return res.status(400).json({
-        error: "Recipient ID and message content are required",
+        error: 'Recipient ID and message content are required',
       });
     }
 
@@ -21,24 +21,21 @@ export const sendMessage = async (req, res) => {
     if (!uid) {
       return res
         .status(401)
-        .json({ error: "Authentication required to send messages" });
+        .json({ error: 'Authentication required to send messages' });
     }
 
     // Verify sender has permission to send messages
     const sender = await UserModel.findOne({ uid });
-    if (
-      !sender ||
-      (sender.role !== ROLES.USER && sender.role !== ROLES.ADMIN)
-    ) {
+    if (!sender || (sender.role !== ROLES.USER && sender.role !== ROLES.ADMIN)) {
       return res
         .status(403)
-        .json({ error: "You do not have permission to send messages" });
+        .json({ error: 'You do not have permission to send messages' });
     }
 
     // Verify recipient exists
     const recipient = await UserModel.findOne({ uid: recipientUid });
     if (!recipient) {
-      return res.status(404).json({ error: "Recipient not found" });
+      return res.status(404).json({ error: 'Recipient not found' });
     }
 
     // Create a message token
@@ -81,7 +78,7 @@ export const sendMessage = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: "Message sent successfully",
+      message: 'Message sent successfully',
       messageId,
     });
   } catch (error) {
@@ -103,7 +100,7 @@ export const getMessages = async (req, res) => {
     if (!user || (user.role !== ROLES.USER && user.role !== ROLES.ADMIN)) {
       return res
         .status(403)
-        .json({ error: "You do not have permission to receive messages" });
+        .json({ error: 'You do not have permission to receive messages' });
     }
 
     // Find messages sent to this user with pagination
@@ -181,14 +178,14 @@ export const flagMessage = async (req, res) => {
 
     if (unflag) {
       // Remove from flagged messages collection
-      const existingFlaggedMessage = await FlaggedMessageModel.findOne({ 
+      const existingFlaggedMessage = await FlaggedMessageModel.findOne({
         originalMessageId: messageId,
-        flaggedBy: userId 
+        flaggedBy: userId,
       });
-      
+
       if (existingFlaggedMessage) {
         await FlaggedMessageModel.deleteOne({ _id: existingFlaggedMessage._id });
-        
+
         // Update original message flag status
         message.isFlagged = {
           status: false,
@@ -212,29 +209,29 @@ export const flagMessage = async (req, res) => {
       }
     } else {
       // Check if already flagged by this user
-      const existingFlaggedMessage = await FlaggedMessageModel.findOne({ 
+      const existingFlaggedMessage = await FlaggedMessageModel.findOne({
         originalMessageId: messageId,
-        flaggedBy: userId 
+        flaggedBy: userId,
       });
-      
+
       if (existingFlaggedMessage) {
         return res.status(400).json({ error: 'Message already flagged' });
       }
 
       // Encrypt the moderator content with server key
       if (!moderatorContent) {
-        return res.status(400).json({ 
-          error: 'Message content is required for flagging' 
+        return res.status(400).json({
+          error: 'Message content is required for flagging',
         });
       }
-      
+
       let serverEncryptedContent;
       try {
         serverEncryptedContent = encryptWithServerKey(moderatorContent);
       } catch (error) {
         console.error('Error encrypting moderator content:', error);
-        return res.status(500).json({ 
-          error: 'Failed to encrypt message content for moderators. Please try again.' 
+        return res.status(500).json({
+          error: 'Failed to encrypt message content for moderators. Please try again.',
         });
       }
 
@@ -244,27 +241,27 @@ export const flagMessage = async (req, res) => {
         try {
           console.log('Looking up sender token:', message.senderToken);
           console.log('Token format matches pattern:', /^msg_\d+_[A-Za-z0-9_-]+$/.test(message.senderToken));
-          
+
           const senderToken = await AuthTokenModel.findOne({ token: message.senderToken });
           if (senderToken) {
             senderUid = senderToken.uid;
             console.log('Found sender UID from token:', senderUid);
           } else {
             console.log('No token record found for:', message.senderToken);
-            
+
             // Debug: Check if any tokens exist at all
             const tokenCount = await AuthTokenModel.countDocuments({});
             console.log('Total tokens in database:', tokenCount);
-            
+
             // Check for similar tokens (maybe there's a format mismatch)
             const similarTokens = await AuthTokenModel.find({
-              token: { $regex: message.senderToken.substring(0, 10) }
+              token: { $regex: message.senderToken.substring(0, 10) },
             }).limit(3);
-            console.log('Similar tokens found:', similarTokens.map(t => ({ token: t.token, uid: t.uid })));
-            
+            console.log('Similar tokens found:', similarTokens.map((t) => ({ token: t.token, uid: t.uid })));
+
             // Check if this exact message token was ever created
-            const exactTokenCheck = await AuthTokenModel.findOne({ 
-              token: message.senderToken 
+            const exactTokenCheck = await AuthTokenModel.findOne({
+              token: message.senderToken,
             });
             console.log('Exact token check result:', exactTokenCheck ? 'Found' : 'Not found');
           }
@@ -328,11 +325,11 @@ export const getSentMessages = async (req, res) => {
     if (!user || (user.role !== ROLES.USER && user.role !== ROLES.ADMIN)) {
       return res
         .status(403)
-        .json({ error: "You do not have permission to access sent messages" });
+        .json({ error: 'You do not have permission to access sent messages' });
     }
 
     // Find tokens created by this user
-    const tokens = await AuthTokenModel.find({ uid: userId }).distinct("token");
+    const tokens = await AuthTokenModel.find({ uid: userId }).distinct('token');
 
     // Find messages sent by this user using those tokens with pagination
     const messages = await MessageModel.find({
@@ -357,13 +354,13 @@ export const getSentMessages = async (req, res) => {
           sentAt: msg.sentAt,
           recipient: recipient
             ? {
-                uid: recipient.uid,
-                name: recipient.name,
-                email: recipient.email,
-              }
-            : { name: "Unknown User" },
+              uid: recipient.uid,
+              name: recipient.name,
+              email: recipient.email,
+            }
+            : { name: 'Unknown User' },
         };
-      })
+      }),
     );
 
     return res.json({
@@ -391,7 +388,7 @@ export const getUnreadMessageCount = async (req, res) => {
     if (!user || (user.role !== ROLES.USER && user.role !== ROLES.ADMIN)) {
       return res
         .status(403)
-        .json({ error: "You do not have permission to access messages" });
+        .json({ error: 'You do not have permission to access messages' });
     }
 
     // Count unread messages
@@ -419,13 +416,13 @@ export const markMessagesAsRead = async (req, res) => {
     if (!user || (user.role !== ROLES.USER && user.role !== ROLES.ADMIN)) {
       return res
         .status(403)
-        .json({ error: "You do not have permission to access messages" });
+        .json({ error: 'You do not have permission to access messages' });
     }
 
     // Mark all unread messages for this user as read
     const result = await MessageModel.updateMany(
       { recipientUid: userId, isRead: false },
-      { $set: { isRead: true } }
+      { $set: { isRead: true } },
     );
 
     return res.json({
