@@ -208,7 +208,6 @@ export const getAuditLogs = async (req, res) => {
       actionType,
       startDate,
       endDate,
-      limit = 100,
     } = req.query;
 
     const query = {};
@@ -222,8 +221,7 @@ export const getAuditLogs = async (req, res) => {
 
     // Get audit logs with pagination
     const auditLogs = await AuditLogModel.find(query)
-      .sort({ timestamp: -1 })
-      .limit(parseInt(limit, 10));
+      .sort({ timestamp: -1 });
 
     return res.json({
       success: true,
