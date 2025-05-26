@@ -1,4 +1,4 @@
-# WhisperChain+: Anonymous Messaging with Role-Based Control and Accountability
+# [WhisperChain+](https://whisperchain.onrender.com): Anonymous Messaging with Role-Based Control and Accountability
 
 by Cameron Keith and Jacob Zhang
 
