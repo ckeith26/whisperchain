@@ -32,12 +32,23 @@ import EditIcon from '@mui/icons-material/Edit';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import KeyIcon from '@mui/icons-material/Key';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import PauseIcon from '@mui/icons-material/Pause';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import useStore from '../../../store';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
+/**
+ * UserManagement Component
+ * 
+ * Simplified Role Management:
+ * - Users: No role changes allowed (roles are permanent)
+ * - Moderators: Can only be paused/reactivated (pause = make idle, play = reactivate)
+ * - Pending Users: Can be approved with roles through the approval process
+ * - Admins: Cannot be modified
+ */
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [pendingUsers, setPendingUsers] = useState([]);
@@ -100,6 +111,29 @@ const UserManagement = () => {
       toast.error("You cannot edit your own role");
       return;
     }
+    
+    // Prevent editing idle users through role dialog - they should use pause/reactivate buttons
+    if (user.role === 'idle') {
+      if (user.requestedRole) {
+        toast.info("This user is pending approval. Use the approval buttons in the Pending Registrations section.");
+      } else {
+        toast.info("This user has been paused. Use the reactivate button to restore their access.");
+      }
+      return;
+    }
+    
+    // Prevent editing users and moderators - only use pause/play functions
+    if (user.role === 'user') {
+      toast.info("User roles cannot be changed. Users must request role changes through the registration process.");
+      return;
+    }
+    
+    if (user.role === 'moderator') {
+      toast.info("Use the pause button to temporarily disable moderator access.");
+      return;
+    }
+    
+    // This should rarely be reached, but kept for safety
     setSelectedUser(user);
     setSelectedRole(user.role);
     setOpenDialog(true);
@@ -170,6 +204,61 @@ const UserManagement = () => {
     }
   };
 
+  const rejectUser = async (userId, userName) => {
+    try {
+      await axios.post(`${API_URL}/admin/rejectUser`, {
+        userId,
+        reason: 'Application rejected by admin'
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      toast.success(`User application for ${userName} has been rejected`);
+      fetchPendingUsers(); // Refresh pending users
+    } catch (err) {
+      console.error('Error rejecting user:', err);
+      toast.error(`Failed to reject user: ${err.response?.data?.error || err.message}`);
+    }
+  };
+
+  const makeModeratorIdle = async (user) => {
+    if (currentUser && currentUser.uid === user.uid) {
+      toast.error("You cannot make yourself idle");
+      return;
+    }
+    
+    try {
+      await axios.post(`${API_URL}/admin/makeModeratorIdle`, {
+        userId: user.uid,
+        reason: 'Made idle by admin'
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      toast.success(`${user.name} has been made idle and can no longer log in`);
+      fetchUsers(); // Refresh user list
+    } catch (err) {
+      console.error('Error making moderator idle:', err);
+      toast.error(`Failed to make moderator idle: ${err.response?.data?.error || err.message}`);
+    }
+  };
+
+  const reactivateModerator = async (user) => {
+    try {
+      await axios.post(`${API_URL}/admin/reactivateModerator`, {
+        userId: user.uid
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      toast.success(`${user.name} has been reactivated and can now log in`);
+      fetchUsers(); // Refresh user list
+    } catch (err) {
+      console.error('Error reactivating moderator:', err);
+      toast.error(`Failed to reactivate moderator: ${err.response?.data?.error || err.message}`);
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
@@ -188,87 +277,6 @@ const UserManagement = () => {
 
   return (
     <>
-      {/* Pending Registrations */}
-      {pendingUsers.length > 0 && (
-        <Paper 
-          sx={{ 
-            p: 3,
-            bgcolor: 'rgba(22, 28, 36, 0.9)',
-            borderRadius: 2,
-            border: '1px solid rgba(255,255,255,0.1)',
-            mb: 3,
-            overflowX: 'auto',
-          }}
-        >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6">
-              Pending Registrations
-            </Typography>
-            <Chip 
-              label={`${pendingUsers.length} pending`} 
-              color="warning" 
-              size="small" 
-            />
-          </Box>
-          
-          {/* Pending Users Table */}
-          <TableContainer sx={{ 
-            overflowX: 'auto',
-            '&::-webkit-scrollbar': {
-              height: '8px'
-            },
-            '&::-webkit-scrollbar-track': {
-              backgroundColor: 'rgba(0,0,0,0.1)'
-            },
-            '&::-webkit-scrollbar-thumb': {
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              borderRadius: '4px'
-            }
-          }}>
-            <Table size="small" sx={{ minWidth: '600px' }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ color: 'rgba(255,255,255,0.7)', minWidth: '120px' }}>Name</TableCell>
-                  <TableCell sx={{ color: 'rgba(255,255,255,0.7)', minWidth: '160px' }}>Email</TableCell>
-                  <TableCell sx={{ color: 'rgba(255,255,255,0.7)', minWidth: '120px' }}>Registered</TableCell>
-                  <TableCell sx={{ color: 'rgba(255,255,255,0.7)', minWidth: '180px' }}>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {pendingUsers.map((user) => (
-                  <TableRow key={user.uid}>
-                    <TableCell sx={{ color: 'white' }}>{user.name || 'Unnamed'}</TableCell>
-                    <TableCell sx={{ color: 'white' }}>{user.email}</TableCell>
-                    <TableCell sx={{ color: 'white' }}>
-                      {new Date(user.accountCreatedAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      <Stack direction="row" spacing={1}>
-                        <Button
-                          size="small"
-                          variant="contained"
-                          color="success"
-                          onClick={() => approveUser(user.uid, 'user')}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="error"
-                          onClick={() => approveUser(user.uid, 'moderator')}
-                        >
-                          As Moderator
-                        </Button>
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
-      )}
 
       {/* Main User List */}
       <Paper 
@@ -278,6 +286,7 @@ const UserManagement = () => {
           borderRadius: 2,
           border: '1px solid rgba(255,255,255,0.1)',
           overflowX: 'auto',
+          mb: 3,
         }}
       >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -340,22 +349,40 @@ const UserManagement = () => {
                     <TableCell sx={{ color: 'white' }}>{user.email}</TableCell>
                     <TableCell>
                       <Chip
-                        label={user.role}
+                        label={
+                          user.role === 'idle' 
+                            ? (user.requestedRole ? 'Pending Approval' : 'Paused') 
+                            : user.role
+                        }
                         size="small"
                         color={
                           user.role === 'admin' 
                             ? 'error' 
                             : user.role === 'moderator' 
                               ? 'warning' 
+                              : user.role === 'idle'
+                                ? (user.requestedRole ? 'warning' : 'error')
                               : 'primary'
                         }
+                        sx={user.role === 'idle' && !user.requestedRole ? {
+                          bgcolor: 'rgba(255,255,255,0.2)',
+                          color: 'white'
+                        } : undefined}
                       />
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={user.status}
+                        label={
+                          user.role === 'idle' 
+                            ? (user.requestedRole ? 'Pending Approval' : 'Paused') 
+                            : user.status
+                        }
                         size="small"
-                        color={user.status === 'active' ? 'success' : 'error'}
+                        color={
+                          user.role === 'idle' 
+                            ? (user.requestedRole ? 'warning' : 'error')
+                            : user.status === 'active' ? 'success' : 'error'
+                        }
                       />
                     </TableCell>
                     <TableCell>
@@ -369,19 +396,60 @@ const UserManagement = () => {
                       {new Date(user.createdAt).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
-                      <Box display="flex" justifyContent="center" width="100%">
-                        <Tooltip title={currentUser && currentUser.uid === user.uid ? "Cannot edit own role" : "Edit Role"}>
+                      <Box display="flex" justifyContent="center" width="100%" gap={1}>
+                        <Tooltip title={
+                          currentUser && currentUser.uid === user.uid 
+                            ? "Cannot edit own role" 
+                            : user.role === 'idle' 
+                              ? (user.requestedRole ? "Use approval buttons for pending users" : "Use reactivate button for paused users")
+                              : user.role === 'moderator'
+                                ? "Use pause/play buttons for moderators"
+                                : user.role === 'user'
+                                  ? "User roles cannot be changed"
+                                  : "Edit Role"
+                        }>
                           <span>
                             <IconButton 
                               size="small" 
                               onClick={() => handleEditUser(user)}
                               sx={{ color: 'primary.main' }}
-                              disabled={currentUser && currentUser.uid === user.uid}
+                              disabled={
+                                (currentUser && currentUser.uid === user.uid) || 
+                                user.role === 'idle' || 
+                                user.role === 'user' || 
+                                user.role === 'moderator'
+                              }
                             >
                               <EditIcon fontSize="small" />
                             </IconButton>
                           </span>
                         </Tooltip>
+                        
+                        {/* Moderator Idle Management */}
+                        {user.role === 'moderator' && currentUser && currentUser.uid !== user.uid && (
+                          <Tooltip title="Make moderator idle (prevent login)">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => makeModeratorIdle(user)}
+                              sx={{ color: 'warning.main' }}
+                            >
+                              <PauseIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        
+                        {/* Only show reactivate button for idle users who were paused by admin (not pending approval) */}
+                        {user.role === 'idle' && !user.requestedRole && (
+                          <Tooltip title="Reactivate moderator">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => reactivateModerator(user)}
+                              sx={{ color: 'success.main' }}
+                            >
+                              <PlayArrowIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -402,6 +470,103 @@ const UserManagement = () => {
         />
       </Paper>
 
+      {/* Pending Registrations */}
+      {pendingUsers.length > 0 && (
+        <Paper 
+          sx={{ 
+            p: 3,
+            bgcolor: 'rgba(22, 28, 36, 0.9)',
+            borderRadius: 2,
+            border: '1px solid rgba(255,255,255,0.1)',
+            mb: 3,
+            overflowX: 'auto',
+          }}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6" color="white">
+              Pending Registrations
+            </Typography>
+            <Chip 
+              label={`${pendingUsers.length} pending`} 
+              color="warning" 
+              size="small" 
+            />
+          </Box>
+          
+          {/* Pending Users Table */}
+          <TableContainer sx={{ 
+            overflowX: 'auto',
+            '&::-webkit-scrollbar': {
+              height: '8px'
+            },
+            '&::-webkit-scrollbar-track': {
+              backgroundColor: 'rgba(0,0,0,0.1)'
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              borderRadius: '4px'
+            }
+          }}>
+            <Table size="small" sx={{ minWidth: '600px' }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ color: 'rgba(255,255,255,0.7)', minWidth: '120px' }}>Name</TableCell>
+                  <TableCell sx={{ color: 'rgba(255,255,255,0.7)', minWidth: '160px' }}>Email</TableCell>
+                  <TableCell sx={{ color: 'rgba(255,255,255,0.7)', minWidth: '120px' }}>Requested Role</TableCell>
+                  <TableCell sx={{ color: 'rgba(255,255,255,0.7)', minWidth: '120px' }}>Registered</TableCell>
+                  <TableCell sx={{ color: 'rgba(255,255,255,0.7)', minWidth: '180px' }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {pendingUsers.map((user) => (
+                  <TableRow key={user.uid}>
+                    <TableCell sx={{ color: 'white' }}>{user.name || 'Unnamed'}</TableCell>
+                    <TableCell sx={{ color: 'white' }}>{user.email}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={user.requestedRole || 'user'}
+                        size="small"
+                        color={user.requestedRole === 'moderator' ? 'warning' : 'primary'}
+                      />
+                    </TableCell>
+                    <TableCell sx={{ color: 'white' }}>
+                      {new Date(user.accountCreatedAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={1}>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="success"
+                          onClick={() => approveUser(user.uid, user.requestedRole || 'user')}
+                        >
+                          Approve as {user.requestedRole || 'user'}
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="secondary"
+                          onClick={() => approveUser(user.uid, user.requestedRole === 'moderator' ? 'user' : 'moderator')}
+                        >
+                          {user.requestedRole === 'moderator' ? 'Approve as User' : 'Approve as Moderator'}
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          onClick={() => rejectUser(user.uid, user.name)}
+                        >
+                          Reject
+                        </Button>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
       {/* Role Edit Dialog */}
       <Dialog 
         open={openDialog} 
@@ -415,7 +580,9 @@ const UserManagement = () => {
           }
         }}
       >
-        <DialogTitle sx={{ fontSize: '1.5rem', pb: 2 }}>Change User Role</DialogTitle>
+        <DialogTitle sx={{ fontSize: '1.5rem', pb: 2 }}>
+          Change User Role
+        </DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           <DialogContentText sx={{ fontSize: '1.1rem', mb: 3 }}>
             Change the role for {selectedUser?.name || selectedUser?.email || 'User'}

@@ -6,6 +6,7 @@ const ACTION_TYPES = {
   USER_ROLE_CHANGED: "user_role_changed",
   USER_SUSPENDED: "user_suspended",
   USER_UNSUSPENDED: "user_unsuspended",
+  USER_REJECTED: "user_rejected",
   MESSAGE_SENT: "message_sent",
   MESSAGE_READ: "message_read",
   MESSAGE_FLAGGED: "message_flagged",

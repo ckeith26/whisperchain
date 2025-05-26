@@ -10,7 +10,8 @@
     "babel-start": "babel-node src/server.js",
     "build": "npx babel src -d dist",
     "prod": "node dist/server.js",
-    "setup-admin": "npx babel-node src/scripts/setup-admin.js"
+    "setup-admin": "npx babel-node src/scripts/setup-admin.js",
+    "generate-keys": "node src/scripts/generateServerKeys.js"
   },
   "license": "ISC",
   "engines": {

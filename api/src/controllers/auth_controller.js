@@ -63,39 +63,39 @@ export const register = async (req, res) => {
         const expiryTime = new Date(existingCode.createdAt.getTime() + 5 * 60 * 1000);
         const now = new Date();
         const diffMs = expiryTime - now;
-        
+
         if (diffMs > 0) {
           const diffSecs = Math.floor(diffMs / 1000);
           const minutes = Math.floor(diffSecs / 60);
           const seconds = diffSecs % 60;
-          
+
           return res.status(429).json({
             error: 'A verification code has already been sent',
             timeRemaining: { minutes, seconds },
             message: `Please wait ${minutes}m ${seconds}s before requesting a new code`,
-            requiresVerification: true
+            requiresVerification: true,
           });
         }
       }
 
       // Generate a purely numeric 6-digit code
       const code = Math.floor(100000 + Math.random() * 900000).toString();
-      
+
       // Save the code
       const newVerificationCode = new VerificationCodeModel({
         email,
         code,
       });
-      
+
       await newVerificationCode.save();
-      
+
       // Send the code via email
       await sendVerificationEmail(email, code);
-      
+
       return res.status(200).json({
         success: true,
         message: 'Verification code sent',
-        requiresVerification: true
+        requiresVerification: true,
       });
     }
 
@@ -105,43 +105,76 @@ export const register = async (req, res) => {
     // Use provided name or generate from email
     const userName = name || email.split('@')[0];
 
+    // Determine user role based on registration
+    let userRole;
+    let requestedRole = null;
+    let requiresApproval = false;
+
+    if (role === 'moderator') {
+      // Moderators require admin approval
+      userRole = ROLES.IDLE;
+      requestedRole = ROLES.MODERATOR;
+      requiresApproval = true;
+    } else {
+      // Regular users are approved immediately
+      userRole = ROLES.USER;
+      requestedRole = null;
+      requiresApproval = false;
+    }
+
     // Create a new user - do NOT hash the password here, let the pre-save hook do it
     const user = new UserModel({
       uid,
       email,
       name: userName,
       password, // Plain password, will be hashed by the pre-save hook
-      role: (role === 'user' || role === 'moderator') ? role : ROLES.IDLE,
-      roleHistory: [{ role: role || ROLES.IDLE, changedAt: new Date() }],
+      role: userRole,
+      requestedRole,
+      requestedAt: requiresApproval ? new Date() : null,
+      roleHistory: [{ role: userRole, changedAt: new Date() }],
       accountCreatedAt: new Date(),
     });
 
     // Let the model's pre-save hook handle the password hashing
     const savedUser = await user.save();
-    
+
     console.log('User saved:', {
       uid: savedUser.uid,
       email: savedUser.email,
       role: savedUser.role,
-      hasPassword: !!savedUser.password
+      requestedRole: savedUser.requestedRole,
+      hasPassword: !!savedUser.password,
     });
 
     // Log user creation
     await new AuditLogModel({
       actionType: ACTION_TYPES.USER_CREATED,
       targetId: uid,
-      metadata: { name: userName, email },
+      metadata: { name: userName, email, requestedRole: savedUser.requestedRole || 'user' },
     }).save();
 
-    // Create token
+    // Handle different registration outcomes
+    if (requiresApproval && savedUser.role === ROLES.IDLE) {
+      // Moderator requests require approval
+      console.log('Moderator registration pending approval:', email);
+      return res.status(201).json({
+        success: true,
+        message: 'Registration successful. Your moderator request is awaiting admin approval. Please wait until an admin approves your request before logging in.',
+        requiresApproval: true,
+        requestedRole: savedUser.requestedRole,
+      });
+    }
+
+    // Regular users are immediately active - create token and log them in
     const timestamp = Math.floor(Date.now() / 1000);
     const token = jwt.encode({
       sub: uid,
       iat: timestamp,
       exp: timestamp + (60 * 60 * 24 * 7), // 7 days
-      role: savedUser.role
+      role: savedUser.role,
     }, JWT_SECRET);
 
+    console.log('User registration successful and logged in:', email);
     return res.status(201).json({
       success: true,
       message: 'Registration successful',
@@ -151,7 +184,7 @@ export const register = async (req, res) => {
         name: savedUser.name,
         email: savedUser.email,
         role: savedUser.role,
-      }
+      },
     });
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -171,11 +204,11 @@ export const login = async (req, res) => {
       return res.status(401).json({ error: 'User does not exist' });
     }
 
-    console.log('User found:', { 
-      uid: user.uid, 
-      role: user.role, 
-      hasPassword: !!user.password, 
-      passwordLength: user.password?.length 
+    console.log('User found:', {
+      uid: user.uid,
+      role: user.role,
+      hasPassword: !!user.password,
+      passwordLength: user.password?.length,
     });
 
     // Check if account is currently locked
@@ -183,12 +216,12 @@ export const login = async (req, res) => {
       const lockoutTimeRemaining = Math.ceil((user.accountLockedUntil - new Date()) / 1000);
       const minutes = Math.floor(lockoutTimeRemaining / 60);
       const seconds = lockoutTimeRemaining % 60;
-      
+
       console.log('Account is locked:', email);
-      return res.status(423).json({ 
+      return res.status(423).json({
         error: `Account is temporarily locked due to too many failed login attempts. Please try again in ${minutes}m ${seconds}s.`,
         accountLocked: true,
-        timeRemaining: { minutes, seconds }
+        timeRemaining: { minutes, seconds },
       });
     }
 
@@ -196,6 +229,15 @@ export const login = async (req, res) => {
     if (user.isSuspended) {
       console.log('User is suspended:', email);
       return res.status(403).json({ error: 'Account is suspended' });
+    }
+
+    // Check if user is still pending approval
+    if (user.role === ROLES.IDLE) {
+      console.log('User account is pending approval:', email);
+      return res.status(403).json({
+        error: 'Your account is awaiting admin approval. Please check back later.',
+        accountPending: true,
+      });
     }
 
     // Check if password field exists
@@ -209,31 +251,30 @@ export const login = async (req, res) => {
       console.log('Comparing passwords. Password exists:', !!user.password);
       const isMatch = await user.comparePassword(password);
       console.log('Password comparison result:', isMatch);
-      
+
       if (!isMatch) {
         // Increment failed login attempts
         await user.incrementFailedAttempts();
-        
+
         const attemptsRemaining = 5 - user.failedLoginAttempts;
         if (attemptsRemaining <= 0) {
-          return res.status(423).json({ 
+          return res.status(423).json({
             error: 'Account has been temporarily locked due to too many failed login attempts. Please try again in 5 minutes.',
-            accountLocked: true
+            accountLocked: true,
           });
         } else {
-          return res.status(401).json({ 
+          return res.status(401).json({
             error: `Invalid credentials. ${attemptsRemaining} attempt${attemptsRemaining === 1 ? '' : 's'} remaining before account lockout.`,
-            attemptsRemaining
+            attemptsRemaining,
           });
         }
       }
-      
+
       // Reset failed login attempts on successful password verification
       await user.resetFailedAttempts();
-      
     } catch (compareError) {
       console.error('Error during password comparison:', compareError.message);
-      return res.status(500).json({ error: 'Error comparing passwords: ' + compareError.message });
+      return res.status(500).json({ error: `Error comparing passwords: ${compareError.message}` });
     }
 
     // If verification code is provided, verify it
@@ -264,12 +305,12 @@ export const login = async (req, res) => {
         const expiryTime = new Date(existingCode.createdAt.getTime() + 5 * 60 * 1000);
         const now = new Date();
         const diffMs = expiryTime - now;
-        
+
         if (diffMs > 0) {
           const diffSecs = Math.floor(diffMs / 1000);
           const minutes = Math.floor(diffSecs / 60);
           const seconds = diffSecs % 60;
-          
+
           return res.status(429).json({
             error: 'A verification code has already been sent',
             timeRemaining: { minutes, seconds },
@@ -281,18 +322,18 @@ export const login = async (req, res) => {
       // If no verification code provided, send one
       // Generate a purely numeric 6-digit code
       const code = Math.floor(100000 + Math.random() * 900000).toString();
-      
+
       // Save the code
       const newVerificationCode = new VerificationCodeModel({
         email,
         code,
       });
-      
+
       await newVerificationCode.save();
-      
+
       // Send the code via email
       await sendVerificationEmail(email, code);
-      
+
       return res.status(200).json({
         success: true,
         message: 'Verification code sent',
@@ -306,7 +347,7 @@ export const login = async (req, res) => {
       sub: user.uid,
       iat: timestamp,
       exp: timestamp + (60 * 60 * 24 * 7), // 7 days
-      role: user.role
+      role: user.role,
     }, JWT_SECRET);
 
     console.log('Login successful for user:', email);
@@ -318,7 +359,7 @@ export const login = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-      }
+      },
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -330,16 +371,23 @@ export const login = async (req, res) => {
 export const generateKeyPair = async (req, res) => {
   try {
     const userId = req.user.uid;
-    
+
     const user = await UserModel.findOne({ uid: userId });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Check if user already has a public key - prevent regeneration
+    if (user.publicKey) {
+      return res.status(400).json({
+        error: 'Key pair already exists. Cannot regenerate existing keys for security reasons.',
+      });
+    }
+
     // The actual key generation should happen on the frontend for security
     // The backend only stores the public key
     const { publicKey } = req.body;
-    
+
     if (!publicKey) {
       return res.status(400).json({ error: 'Public key is required' });
     }
@@ -347,8 +395,8 @@ export const generateKeyPair = async (req, res) => {
     user.publicKey = publicKey;
     await user.save();
 
-    return res.json({ 
-      success: true, 
+    return res.json({
+      success: true,
       message: 'Public key stored successfully',
     });
   } catch (error) {
@@ -363,20 +411,20 @@ export const searchUsers = async (req, res) => {
     const page = parseInt(req.query.page, 10) || 0;
     const limit = parseInt(req.query.limit, 10) || 10;
     const skip = page * limit;
-    
+
     // Get current user's ID from authentication
     const currentUserUid = req.user.uid;
-    
+
     const userQuery = {
       role: ROLES.USER,
       isSuspended: false,
       uid: { $ne: currentUserUid }, // Exclude current user
     };
-    
+
     // If search query is provided, search by name or email
     if (query && query.trim() !== '') {
       const searchRegex = { $regex: query, $options: 'i' };
-      
+
       // Find users by email or name
       const users = await UserModel.find({
         $or: [
@@ -385,26 +433,26 @@ export const searchUsers = async (req, res) => {
         ],
         ...userQuery,
       })
-      .select('uid name email publicKey')
-      .sort({ name: 1 })
-      .skip(skip)
-      .limit(limit);
-      
-      return res.json({ 
+        .select('uid name email publicKey')
+        .sort({ name: 1 })
+        .skip(skip)
+        .limit(limit);
+
+      return res.json({
         users,
         hasMore: users.length === limit,
         page,
       });
     }
-    
+
     // If no query provided, return paginated list of all users
     const users = await UserModel.find(userQuery)
       .select('uid name email publicKey')
       .sort({ name: 1 })
       .skip(skip)
       .limit(limit);
-    
-    return res.json({ 
+
+    return res.json({
       users,
       hasMore: users.length === limit,
       page,
@@ -418,7 +466,7 @@ export const searchUsers = async (req, res) => {
 export const getUserProfile = async (req, res) => {
   try {
     const userId = req.user.uid;
-    
+
     const user = await UserModel.findOne({ uid: userId });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -430,8 +478,9 @@ export const getUserProfile = async (req, res) => {
       email: user.email,
       role: user.role,
       publicKey: user.publicKey,
+      hasKeyPair: !!user.publicKey,
     });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
-}; 
+};

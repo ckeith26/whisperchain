@@ -14,7 +14,6 @@ import ModeratorPanel from "./components/moderator/ModeratorPanel";
 import ConditionalRedirect from "./components/shared-components/ConditionalRedirect";
 import LoadingPage from "./components/shared-components/LoadingPage";
 import { useLocation } from "react-router-dom";
-import CryptoTest from "./components/test/CryptoTest";
 import "./styles.scss";
 
 // Set up axios interceptors for API connection detection
@@ -221,18 +220,6 @@ const App = () => {
           <Route
             path="/signup"
             element={<Navigate to="/?action=signup" replace />}
-          />
-
-          {/* Test routes */}
-          <Route
-            path="/test/crypto"
-            element={
-              authenticated ? (
-                <CryptoTest />
-              ) : (
-                <Navigate to="/?action=signin" replace />
-              )
-            }
           />
 
           <Route path="*" element={<NotFound />} />

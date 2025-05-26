@@ -135,7 +135,12 @@ const userSlice = (set, get) => ({
         }
       );
 
-      // Don't show toast for successful message send - it's too frequent
+      // Show success toast
+      toast.success("Message sent successfully!");
+      
+      // Automatically refresh sent messages to show the new message
+      get().userSlice.getSentMessages(0);
+
       return { success: true, messageId: response.data.messageId };
     } catch (error) {
       console.error("Error sending message:", error);
