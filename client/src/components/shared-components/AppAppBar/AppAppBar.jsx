@@ -66,7 +66,7 @@ const AppAppBar = ({
   handleCloseSignIn,
   handleOpenSignUp,
   handleCloseSignUp,
-  handleOpenForgotPassword,
+  // handleOpenForgotPassword,
   handleCloseForgotPassword,
   switchToSignIn,
   switchToSignUp,
@@ -600,12 +600,12 @@ const AppAppBar = ({
     navigate('/', { replace: true });
   };
   
-  const defaultHandleOpenForgotPassword = () => {
-    effectiveSetOpenSignIn(false);
-    effectiveSetOpenSignUp(false);
-    effectiveSetOpenForgotPassword(true);
-    navigate('/reset-password', { replace: true });
-  };
+  // const defaultHandleOpenForgotPassword = () => {
+  //   effectiveSetOpenSignIn(false);
+  //   effectiveSetOpenSignUp(false);
+  //   effectiveSetOpenForgotPassword(true);
+  //   navigate('/reset-password', { replace: true });
+  // };
   
   const defaultHandleCloseForgotPassword = () => {
     effectiveSetOpenForgotPassword(false);
@@ -630,7 +630,7 @@ const AppAppBar = ({
   const effectiveHandleCloseSignIn = handleCloseSignIn || defaultHandleCloseSignIn;
   const effectiveHandleOpenSignUp = handleOpenSignUp || defaultHandleOpenSignUp;
   const effectiveHandleCloseSignUp = handleCloseSignUp || defaultHandleCloseSignUp;
-  const effectiveHandleOpenForgotPassword = handleOpenForgotPassword || defaultHandleOpenForgotPassword;
+  // const effectiveHandleOpenForgotPassword = handleOpenForgotPassword || defaultHandleOpenForgotPassword;
   const effectiveHandleCloseForgotPassword = handleCloseForgotPassword || defaultHandleCloseForgotPassword;
   const effectiveSwitchToSignUp = switchToSignUp || defaultSwitchToSignUp;
   const effectiveSwitchToSignIn = switchToSignIn || defaultSwitchToSignIn;
@@ -1143,7 +1143,7 @@ const AppAppBar = ({
                       mb: 1 
                     }}
                   >
-                    <Typography 
+                    {/* <Typography 
                       variant="body2" 
                       onClick={effectiveHandleOpenForgotPassword}
                       sx={{ 
@@ -1156,7 +1156,7 @@ const AppAppBar = ({
                       }}
                     >
                       Forgot password?
-                    </Typography>
+                    </Typography> */}
                   </Box>
                   
                   <TextField
